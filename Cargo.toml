@@ -1,0 +1,8 @@
+[package]
+name = "potnet"
+version = "0.1.0"
+authors = ["Luca Pizzamiglio <luca.pizzamiglio@gmail.com>"]
+
+[dependencies]
+clap = {version = "^2.31.2", features = ["yaml"]}
+walkdir = "2"
