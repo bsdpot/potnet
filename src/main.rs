@@ -22,13 +22,13 @@ fn show(verbose: u64, conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<S
     println!("\tmin addr: {}", conf.network.unwrap());
     println!("\tmax addr: {:?}", max_addr);
     println!("\nAddresses already taken:");
-    for (ip, opt_name) in ip_db {
+    for (ip, opt_name) in ip_db.iter() {
         println!(
             "\t{}\t{}",
             ip,
             match opt_name {
-                Some(s) => s,
-                None => "",
+                &Some(ref s) => s,
+                &None => "",
             }
         );
     }
