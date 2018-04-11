@@ -5,9 +5,9 @@ extern crate potnet;
 use potnet::pot::{get_pot_conf_list, IPType, SystemConf};
 use clap::{App, AppSettings};
 use std::net::Ipv4Addr;
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
-fn show(verbose: u64, conf: &SystemConf, ip_db: &mut BTreeSet<Ipv4Addr>) {
+fn show(verbose: u64, conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) {
     let netmask = conf.netmask.unwrap().octets();
     let net_min = conf.network.unwrap().octets();
     let mut net_max = net_min;
@@ -22,8 +22,15 @@ fn show(verbose: u64, conf: &SystemConf, ip_db: &mut BTreeSet<Ipv4Addr>) {
     println!("\tmin addr: {}", conf.network.unwrap());
     println!("\tmax addr: {:?}", max_addr);
     println!("\nAddresses already taken:");
-    for i in ip_db.iter() {
-        println!("\t{}", i);
+    for (ip, opt_name) in ip_db {
+        println!(
+            "\t{}\t{}",
+            ip,
+            match opt_name {
+                Some(s) => s,
+                None => "",
+            }
+        );
     }
     if verbose > 0 {
         println!("\nDebug information\n{:?}", conf);
@@ -41,7 +48,7 @@ fn octect_incr(a: &mut [u8; 4]) {
     }
 }
 
-fn get(verbose: u64, conf: &SystemConf, ip_db: &BTreeSet<Ipv4Addr>) {
+fn get(verbose: u64, conf: &SystemConf, ip_db: &BTreeMap<Ipv4Addr, Option<String>>) {
     let netmask = conf.netmask.unwrap().octets();
     let net_min = conf.network.unwrap().octets();
     let mut net_max = net_min;
@@ -52,7 +59,7 @@ fn get(verbose: u64, conf: &SystemConf, ip_db: &BTreeSet<Ipv4Addr>) {
     let mut addr: [u8; 4] = net_min;
     loop {
         octect_incr(&mut addr);
-        if !ip_db.contains(&Ipv4Addr::from(addr)) {
+        if !ip_db.contains_key(&(Ipv4Addr::from(addr))) {
             if verbose > 0 {
                 println!("{},{}.{}.{} available", addr[0], addr[1], addr[2], addr[3]);
             } else {
@@ -68,7 +75,7 @@ fn get(verbose: u64, conf: &SystemConf, ip_db: &BTreeSet<Ipv4Addr>) {
     }
 }
 
-fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeSet<Ipv4Addr>) {
+fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) {
     let netmask = conf.netmask.unwrap().octets();
     let net_min = conf.network.unwrap().octets();
     let mut net_max = net_min;
@@ -77,10 +84,10 @@ fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeSet<Ipv4Addr>) {
     net_max[1] |= !netmask[1];
     net_max[0] |= !netmask[0];
     let max_addr = Ipv4Addr::from(net_max);
-    ip_db.insert(max_addr);
+    ip_db.insert(max_addr, None);
     for v in &get_pot_conf_list(conf.clone()) {
         if v.ip_type == IPType::Vnet {
-            ip_db.insert(v.ip_addr);
+            ip_db.insert(v.ip_addr.unwrap(), Some(v.name.clone()));
         }
     }
 }
@@ -98,10 +105,13 @@ fn main() {
         println!("No valid configuration found");
         return;
     }
-    let mut ip_db: BTreeSet<Ipv4Addr> = BTreeSet::new();
-    ip_db.insert(conf.network.unwrap());
-    ip_db.insert(conf.dns_ip.unwrap());
-    ip_db.insert(conf.gateway.unwrap());
+    let mut ip_db = BTreeMap::new();
+    ip_db.insert(conf.network.unwrap(), None);
+    ip_db.insert(
+        conf.dns_ip.unwrap(),
+        Some(conf.dns_name.as_ref().unwrap().to_string()),
+    );
+    ip_db.insert(conf.gateway.unwrap(), Some("GATEWAY".to_string()));
     init_ipdb(&conf, &mut ip_db);
     match matches.subcommand() {
         ("show", Some(show_matches)) => {
@@ -116,5 +126,52 @@ fn main() {
             println!("command {} unknown", boh);
             println!("{}", matches.usage());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn octect_intr_001() {
+        let mut a = [0u8, 0u8, 0u8, 0u8];
+        octect_incr(&mut a);
+        assert_eq!(a, [0u8, 0u8, 0u8, 1u8]);
+    }
+
+    #[test]
+    fn octect_intr_002() {
+        let mut a = [0u8, 0u8, 0u8, 255];
+        octect_incr(&mut a);
+        assert_eq!(a, [0u8, 0u8, 1u8, 0u8]);
+    }
+
+    #[test]
+    fn octect_intr_003() {
+        let mut a = [0u8, 0u8, 255u8, 255u8];
+        octect_incr(&mut a);
+        assert_eq!(a, [0u8, 1u8, 0u8, 0u8]);
+    }
+
+    #[test]
+    fn octect_intr_004() {
+        let mut a = [0u8, 255u8, 255u8, 255u8];
+        octect_incr(&mut a);
+        assert_eq!(a, [1u8, 0u8, 0u8, 0u8]);
+    }
+
+    #[test]
+    fn octect_intr_005() {
+        let mut a = [255u8, 255u8, 255u8, 255u8];
+        octect_incr(&mut a);
+        assert_eq!(a, [0u8, 0u8, 0u8, 0u8]);
+    }
+
+    #[test]
+    fn octect_intr_006() {
+        let mut a = [0u8, 10u8, 255u8, 255u8];
+        octect_incr(&mut a);
+        assert_eq!(a, [0u8, 11u8, 0u8, 0u8]);
     }
 }
