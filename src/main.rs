@@ -26,9 +26,9 @@ fn show(verbose: u64, conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<S
         println!(
             "\t{}\t{}",
             ip,
-            match opt_name {
-                &Some(ref s) => s,
-                &None => "",
+            match *opt_name {
+                Some(ref s) => s,
+                None => "",
             }
         );
     }
