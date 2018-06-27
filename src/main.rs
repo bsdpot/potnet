@@ -1,13 +1,29 @@
 #[macro_use]
-extern crate clap;
+extern crate structopt;
 extern crate potnet;
 
 use potnet::pot::{get_pot_conf_list, IPType, SystemConf};
-use clap::{App, AppSettings};
-use std::net::Ipv4Addr;
 use std::collections::BTreeMap;
+use std::net::Ipv4Addr;
+use structopt::StructOpt;
 
-fn show(verbose: u64, conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) {
+#[derive(Debug, StructOpt)]
+struct Opt {
+    #[structopt(short = "v")]
+    verbose: bool,
+    #[structopt(subcommand)]
+    subcommand: Command,
+}
+
+#[derive(Debug, StructOpt)]
+enum Command {
+    #[structopt(name = "show")]
+    Show,
+    #[structopt(name = "next")]
+    Next,
+}
+
+fn show(verbose: bool, conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) {
     let netmask = conf.netmask.unwrap().octets();
     let net_min = conf.network.unwrap().octets();
     let mut net_max = net_min;
@@ -32,7 +48,7 @@ fn show(verbose: u64, conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<S
             }
         );
     }
-    if verbose > 0 {
+    if verbose {
         println!("\nDebug information\n{:?}", conf);
     }
 }
@@ -48,7 +64,7 @@ fn octect_incr(a: &mut [u8; 4]) {
     }
 }
 
-fn get(verbose: u64, conf: &SystemConf, ip_db: &BTreeMap<Ipv4Addr, Option<String>>) {
+fn get(verbose: bool, conf: &SystemConf, ip_db: &BTreeMap<Ipv4Addr, Option<String>>) {
     let netmask = conf.netmask.unwrap().octets();
     let net_min = conf.network.unwrap().octets();
     let mut net_max = net_min;
@@ -60,13 +76,13 @@ fn get(verbose: u64, conf: &SystemConf, ip_db: &BTreeMap<Ipv4Addr, Option<String
     loop {
         octect_incr(&mut addr);
         if !ip_db.contains_key(&(Ipv4Addr::from(addr))) {
-            if verbose > 0 {
+            if verbose {
                 println!("{},{}.{}.{} available", addr[0], addr[1], addr[2], addr[3]);
             } else {
                 println!("{},{}.{}.{}", addr[0], addr[1], addr[2], addr[3]);
             }
             break;
-        } else if verbose > 0 {
+        } else if verbose {
             println!(
                 "{},{}.{}.{} already used",
                 addr[0], addr[1], addr[2], addr[3]
@@ -93,13 +109,12 @@ fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) 
 }
 
 fn main() {
-    let yaml = load_yaml!("potnet.yaml");
-    let matches = App::from_yaml(yaml)
-        .setting(AppSettings::SubcommandRequiredElseHelp)
-        .setting(AppSettings::VersionlessSubcommands)
-        .get_matches();
+    let opt = Opt::from_args();
 
-    let mut verbosity = matches.occurrences_of("verbose");
+    let mut verbosity = false;
+    if opt.verbose {
+        verbosity = true;
+    }
     let conf = SystemConf::new();
     if !conf.is_valid() {
         println!("No valid configuration found");
@@ -113,18 +128,12 @@ fn main() {
     );
     ip_db.insert(conf.gateway.unwrap(), Some("GATEWAY".to_string()));
     init_ipdb(&conf, &mut ip_db);
-    match matches.subcommand() {
-        ("show", Some(show_matches)) => {
-            verbosity += show_matches.occurrences_of("verbose");
+    match opt.subcommand {
+        Command::Show => {
             show(verbosity, &conf, &mut ip_db);
         }
-        ("get", Some(get_matches)) => {
-            verbosity += get_matches.occurrences_of("verbose");
+        Command::Next => {
             get(verbosity, &conf, &ip_db);
-        }
-        (boh, _) => {
-            println!("command {} unknown", boh);
-            println!("{}", matches.usage());
         }
     }
 }
