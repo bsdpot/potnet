@@ -1,5 +1,8 @@
 #[macro_use]
 extern crate structopt;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 extern crate potnet;
 
 use potnet::pot::{get_pot_conf_list, IPType, SystemConf};
@@ -77,14 +80,14 @@ fn get(verbose: bool, conf: &SystemConf, ip_db: &BTreeMap<Ipv4Addr, Option<Strin
         octect_incr(&mut addr);
         if !ip_db.contains_key(&(Ipv4Addr::from(addr))) {
             if verbose {
-                println!("{},{}.{}.{} available", addr[0], addr[1], addr[2], addr[3]);
+                println!("{}.{}.{}.{} available", addr[0], addr[1], addr[2], addr[3]);
             } else {
-                println!("{},{}.{}.{}", addr[0], addr[1], addr[2], addr[3]);
+                println!("{}.{}.{}.{}", addr[0], addr[1], addr[2], addr[3]);
             }
             break;
         } else if verbose {
             println!(
-                "{},{}.{}.{} already used",
+                "{}.{}.{}.{} already used",
                 addr[0], addr[1], addr[2], addr[3]
             );
         }
@@ -103,30 +106,40 @@ fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) 
     ip_db.insert(max_addr, None);
     for v in &get_pot_conf_list(conf.clone()) {
         if v.ip_type == IPType::Vnet {
+            info!("Insert dns {:?}", v.ip_addr);
             ip_db.insert(v.ip_addr.unwrap(), Some(v.name.clone()));
         }
     }
 }
 
 fn main() {
+    let _ = env_logger::try_init();
+    trace!("potnet start");
+
     let opt = Opt::from_args();
 
-    let mut verbosity = false;
-    if opt.verbose {
-        verbosity = true;
-    }
+    let verbosity = if opt.verbose {
+        info!("Verbose output activated");
+        true
+    } else {
+        false
+    };
     let conf = SystemConf::new();
     if !conf.is_valid() {
+        error!("No valid configuration found");
         println!("No valid configuration found");
         return;
     }
     let mut ip_db = BTreeMap::new();
+    info!("Insert network {:?}", conf.network);
     ip_db.insert(conf.network.unwrap(), None);
+    info!("Insert dns {:?}", conf.dns_ip);
     ip_db.insert(
         conf.dns_ip.unwrap(),
         Some(conf.dns_name.as_ref().unwrap().to_string()),
     );
-    ip_db.insert(conf.gateway.unwrap(), Some("GATEWAY".to_string()));
+    info!("Insert gateway {:?}", conf.gateway);
+    ip_db.insert(conf.gateway.unwrap(), Some("default gateway".to_string()));
     init_ipdb(&conf, &mut ip_db);
     match opt.subcommand {
         Command::Show => {
