@@ -56,7 +56,16 @@ fn show(verbose: bool, conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<
     }
 }
 
-fn octect_incr(a: &mut [u8; 4]) {
+/// Increment an IPv4 address, give as a slice of 4 octets
+///
+/// # Examples
+///
+/// ```
+/// let mut a = [192u8, 168u8, 1u8, 255];
+/// octect_incr(&mut a);
+/// assert_eq!(a, [192u8, 168u8, 2u8, 0u8]);
+/// ```
+pub fn octect_incr(a: &mut [u8; 4]) {
     for idx in (0..4).rev() {
         if a[idx] == 255 {
             a[idx] = 0;

@@ -1,11 +1,11 @@
-use walkdir::WalkDir;
-use std::net::Ipv4Addr;
-use std::process::Command;
-use std::path::{Path, PathBuf};
+use std::default::Default;
 use std::fs::File;
 use std::io::prelude::*;
+use std::net::Ipv4Addr;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::str::FromStr;
-use std::default::Default;
+use walkdir::WalkDir;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SystemConf {
@@ -106,6 +106,26 @@ impl Default for SystemConf {
 
 impl FromStr for SystemConf {
     type Err = PotError;
+    /// Create a pot System configuration from a string
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::net::Ipv4Addr;
+    /// use std::str::FromStr;
+    /// let uut = potnet::pot::SystemConf::from_str("POT_GATEWAY=192.168.0.1\nPOT_DNS_NAME=test-dns");
+    /// assert_eq!(uut.is_ok(), true);
+    /// let uut = uut.unwrap();
+    /// assert_eq!(uut.is_valid(), false);
+    /// assert_eq!(uut.gateway.is_some(), true);
+    /// assert_eq!(
+    ///     uut.gateway.unwrap(),
+    ///     "192.168.0.1".parse::<Ipv4Addr>().unwrap()
+    /// );
+    /// assert_eq!(uut.dns_name.is_some(), true);
+    /// assert_eq!(uut.dns_name.unwrap(), "test-dns".to_string());
+    /// assert_eq!(uut.dns_ip.is_none(), true);
+    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut default = SystemConf::default();
         let lines: Vec<String> = s.to_string()
