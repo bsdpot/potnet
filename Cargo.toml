@@ -1,6 +1,6 @@
 [package]
 name = "potnet"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Luca Pizzamiglio <luca.pizzamiglio@gmail.com>"]
 
 [dependencies]

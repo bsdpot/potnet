@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.1.1] 2018-07-18
+### Changed
+- next: renamed get subcommand with next
+- adopt structopt
+
 ## [0.1.0] 2018-05-21
 ### Added
 - show: it shows the whole network status
