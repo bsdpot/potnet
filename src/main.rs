@@ -1,29 +1,44 @@
-#[macro_use]
-extern crate structopt;
+extern crate env_logger;
 #[macro_use]
 extern crate log;
-extern crate env_logger;
+#[macro_use]
+extern crate failure;
 extern crate potnet;
+extern crate structopt;
+extern crate structopt_flags;
 
+use failure::Error;
 use potnet::pot::{get_pot_conf_list, IPType, SystemConf};
 use std::collections::BTreeMap;
 use std::net::Ipv4Addr;
+use std::string::String;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 struct Opt {
-    #[structopt(short = "v")]
-    verbose: bool,
+    #[structopt(flatten)]
+    verbose: structopt_flags::SimpleVerbose,
     #[structopt(subcommand)]
     subcommand: Command,
 }
 
 #[derive(Debug, StructOpt)]
 enum Command {
+    /// Show the pot virtual network status
     #[structopt(name = "show")]
     Show,
+    /// Provides the next available IP address
     #[structopt(name = "next")]
     Next,
+    /// Validate the IP address provided as parameter
+    #[structopt(name = "validate")]
+    Validate(ValidateOpt),
+}
+
+#[derive(Debug, StructOpt)]
+struct ValidateOpt {
+    #[structopt(flatten)]
+    ip: structopt_flags::HostV4Param,
 }
 
 fn show(verbose: bool, conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) {
@@ -103,6 +118,33 @@ fn get(verbose: bool, conf: &SystemConf, ip_db: &BTreeMap<Ipv4Addr, Option<Strin
     }
 }
 
+fn validate(
+    _verbose: bool,
+    ip: Ipv4Addr,
+    conf: &SystemConf,
+    ip_db: &BTreeMap<Ipv4Addr, Option<String>>,
+) -> Result<(), Error> {
+    if ip_db.contains_key(&ip) {
+        return Err(format_err!("Address already in use"));
+    }
+
+    if ip < conf.network.unwrap() {
+        return Err(format_err!("Address outside the network"));
+    }
+    let netmask = conf.netmask.unwrap().octets();
+    let net_min = conf.network.unwrap().octets();
+    let mut net_max = net_min;
+    net_max[3] |= !netmask[3];
+    net_max[2] |= !netmask[2];
+    net_max[1] |= !netmask[1];
+    net_max[0] |= !netmask[0];
+    let max_addr = Ipv4Addr::from(net_max);
+    if ip > max_addr {
+        return Err(format_err!("Address outside the network"));
+    }
+    Ok(())
+}
+
 fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) {
     let netmask = conf.netmask.unwrap().octets();
     let net_min = conf.network.unwrap().octets();
@@ -121,13 +163,13 @@ fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) 
     }
 }
 
-fn main() {
-    let _ = env_logger::try_init();
+fn main() -> Result<(), Error> {
+    let _ = env_logger::try_init()?;
     trace!("potnet start");
 
     let opt = Opt::from_args();
 
-    let verbosity = if opt.verbose {
+    let verbosity = if opt.verbose.verbose {
         info!("Verbose output activated");
         true
     } else {
@@ -137,7 +179,7 @@ fn main() {
     if !conf.is_valid() {
         error!("No valid configuration found");
         println!("No valid configuration found");
-        return;
+        return Ok(());
     }
     let mut ip_db = BTreeMap::new();
     info!("Insert network {:?}", conf.network);
@@ -157,7 +199,11 @@ fn main() {
         Command::Next => {
             get(verbosity, &conf, &ip_db);
         }
+        Command::Validate(_vopt) => {
+            return validate(verbosity, _vopt.ip.host_addr, &conf, &ip_db);
+        }
     }
+    Ok(())
 }
 
 #[cfg(test)]

@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- adopt failure crate
+- validate: new subcommand to validate the usability of an address
+
+### Changed
+- update creates and adopt structopt-flags
+- Use the FreeBSD email address
 
 ## [0.1.1] 2018-07-18
 ### Changed

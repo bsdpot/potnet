@@ -1,10 +1,12 @@
 [package]
 name = "potnet"
-version = "0.1.1"
-authors = ["Luca Pizzamiglio <luca.pizzamiglio@gmail.com>"]
+version = "0.1.2"
+authors = ["Luca Pizzamiglio <pizzamig@FreeBSD.org>"]
 
 [dependencies]
+structopt-flags = "^0.2.1"
 structopt = {version = "0.2", default-features = false }
 walkdir = "2"
 log = "0.4.0"
 env_logger = "^0.5.10"
+failure = "0.1"
