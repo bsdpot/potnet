@@ -164,7 +164,7 @@ fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) 
 }
 
 fn main() -> Result<(), Error> {
-    let _ = env_logger::try_init()?;
+    env_logger::try_init()?;
     trace!("potnet start");
 
     let opt = Opt::from_args();
