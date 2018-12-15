@@ -7,4 +7,4 @@ rust:
 os: FreeBSD
 
 FreeBSD:
-    - 11.2
+    - '11.2'
