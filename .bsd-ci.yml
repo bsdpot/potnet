@@ -1,0 +1,10 @@
+language: rust
+
+rust:
+    - nightly
+    - stable
+
+os: FreeBSD
+
+FreeBSD:
+    - 11.2
