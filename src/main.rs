@@ -1,18 +1,12 @@
-extern crate env_logger;
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate failure;
-extern crate potnet;
-extern crate structopt;
-extern crate structopt_flags;
-
-use failure::Error;
+use failure::{format_err, Error};
+use log::{debug, error, info, trace};
 use potnet::pot::{get_pot_conf_list, IPType, SystemConf};
 use std::collections::BTreeMap;
 use std::net::Ipv4Addr;
+use std::process;
 use std::string::String;
 use structopt::StructOpt;
+use structopt_flags::{HostParam, HostV4Param};
 
 #[derive(Debug, StructOpt)]
 struct Opt {
@@ -33,12 +27,27 @@ enum Command {
     /// Validate the IP address provided as parameter
     #[structopt(name = "validate")]
     Validate(ValidateOpt),
+    /// Check if the arguemnt is a valid ipv4 address
+    #[structopt(name = "ip4check")]
+    IP4(CheckOpt),
+    /// Check if the arguemnt is a valid ipv6 address
+    #[structopt(name = "ip6check")]
+    IP6(CheckOpt),
+    /// Check if the arguemnt is a valid ip address
+    #[structopt(name = "ipcheck")]
+    IP(CheckOpt),
 }
 
 #[derive(Debug, StructOpt)]
 struct ValidateOpt {
     #[structopt(flatten)]
-    ip: structopt_flags::HostV4Param,
+    ip: HostV4Param,
+}
+
+#[derive(Debug, StructOpt)]
+struct CheckOpt {
+    #[structopt(flatten)]
+    ip: HostParam,
 }
 
 fn show(verbose: bool, conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) {
@@ -201,6 +210,19 @@ fn main() -> Result<(), Error> {
         }
         Command::Validate(_vopt) => {
             return validate(verbosity, _vopt.ip.host_addr, &conf, &ip_db);
+        }
+        Command::IP4(_x) => {
+            if !_x.ip.host_addr.is_ipv4() {
+                process::exit(1);
+            }
+        }
+        Command::IP6(_x) => {
+            if !_x.ip.host_addr.is_ipv6() {
+                process::exit(1);
+            }
+        }
+        Command::IP(_x) => {
+            debug!("{} is a valid IP address", _x.ip.host_addr);
         }
     }
     Ok(())
