@@ -35,7 +35,7 @@ fn get_pot_prefix() -> Result<PathBuf, PotError> {
         Ok(s) => s,
         Err(_) => return Err(PotError::WhichError),
     };
-    let pot_path = Path::new(pot_path.trim_right());
+    let pot_path = Path::new(pot_path.trim_end());
     let pot_prefix = match pot_path.parent() {
         Some(i) => i,
         _ => return Err(PotError::PathError),
@@ -128,7 +128,8 @@ impl FromStr for SystemConf {
     /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut default = SystemConf::default();
-        let lines: Vec<String> = s.to_string()
+        let lines: Vec<String> = s
+            .to_string()
             .lines()
             .map(|x| x.trim().to_string())
             .filter(|x| !x.starts_with('#'))
@@ -219,9 +220,14 @@ impl SystemConf {
         dconf
     }
     pub fn is_valid(&self) -> bool {
-        self.zfs_root != None && self.fs_root != None && self.network != None
-            && self.netmask != None && self.gateway != None && self.ext_if != None
-            && self.dns_name != None && self.dns_ip != None
+        self.zfs_root != None
+            && self.fs_root != None
+            && self.network != None
+            && self.netmask != None
+            && self.gateway != None
+            && self.ext_if != None
+            && self.dns_name != None
+            && self.dns_ip != None
     }
     fn merge(&mut self, rhs: SystemConf) {
         if rhs.zfs_root.is_some() {
@@ -538,7 +544,8 @@ mod tests {
             "POT_ZFS_ROOT=zroot/pot\nPOT_FS_ROOT=/opt/pot\nPOT_EXTIF=em0\n
             POT_NETWORK=192.168.0.0/24\nPOT_NETMASK=255.255.255.0\nPOT_GATEWAY=192.168.0.1\n
             POT_DNS_IP=192.168.0.2\nPOT_DNS_NAME=bar_dns",
-        ).unwrap();
+        )
+        .unwrap();
         uut.merge(uut2.clone());
         assert_eq!(uut, uut2);
     }
@@ -549,7 +556,8 @@ mod tests {
             "POT_ZFS_ROOT=zroot/pot\nPOT_FS_ROOT=/opt/pot\nPOT_EXTIF=em0\n
             POT_NETWORK=192.168.0.0/24\nPOT_NETMASK=255.255.255.0\nPOT_GATEWAY=192.168.0.1\n
             POT_DNS_IP=192.168.0.2\nPOT_DNS_NAME=bar_dns",
-        ).unwrap();
+        )
+        .unwrap();
         let uut2 = SystemConf::from_str("POT_DNS_NAME=foo_dns").unwrap();
         uut.merge(uut2);
         assert_eq!(
@@ -558,7 +566,8 @@ mod tests {
                 "POT_ZFS_ROOT=zroot/pot\nPOT_FS_ROOT=/opt/pot\nPOT_EXTIF=em0\n
             POT_NETWORK=192.168.0.0/24\nPOT_NETMASK=255.255.255.0\nPOT_GATEWAY=192.168.0.1\n
             POT_DNS_IP=192.168.0.2\nPOT_DNS_NAME=foo_dns"
-            ).unwrap()
+            )
+            .unwrap()
         );
     }
 }
