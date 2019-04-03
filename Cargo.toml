@@ -2,6 +2,7 @@
 name = "potnet"
 version = "0.1.2"
 authors = ["Luca Pizzamiglio <pizzamig@FreeBSD.org>"]
+edition = "2018"
 
 [dependencies]
 structopt-flags = "^0.2.1"
