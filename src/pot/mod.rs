@@ -303,7 +303,7 @@ pub fn get_pot_conf_list(conf: SystemConf) -> Vec<PotConf> {
         .max_depth(1)
         .min_depth(1)
         .into_iter()
-        .filter_map(|x| x.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|x| x.file_type().is_dir())
     {
         let mut pot_conf = PotConf::default();
