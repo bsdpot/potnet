@@ -6,12 +6,12 @@ use std::net::Ipv4Addr;
 use std::process;
 use std::string::String;
 use structopt::StructOpt;
-use structopt_flags::{HostParam, HostV4Param};
+use structopt_flags::{HostParam, HostV4Param, LogLevel};
 
 #[derive(Debug, StructOpt)]
 struct Opt {
     #[structopt(flatten)]
-    verbose: structopt_flags::SimpleVerbose,
+    verbose: structopt_flags::QuietVerbose,
     #[structopt(subcommand)]
     subcommand: Command,
 }
@@ -76,7 +76,7 @@ fn show(verbose: bool, conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<
         );
     }
     if verbose {
-        println!("\nDebug information\n{:?}", conf);
+        println!("\nDebug information\n{:#?}", conf);
     }
 }
 
@@ -173,12 +173,11 @@ fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) 
 }
 
 fn main() -> Result<(), Error> {
-    env_logger::try_init()?;
+    let opt = Opt::from_args();
+    opt.verbose.set_log_level();
     trace!("potnet start");
 
-    let opt = Opt::from_args();
-
-    let verbosity = if opt.verbose.verbose {
+    let verbosity = if opt.verbose.get_level_filter() > log::LevelFilter::Warn {
         info!("Verbose output activated");
         true
     } else {
