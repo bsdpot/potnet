@@ -5,12 +5,13 @@ authors = ["Luca Pizzamiglio <pizzamig@FreeBSD.org>"]
 edition = "2018"
 
 [dependencies]
-structopt-flags = "^0.2.1"
 structopt = {version = "0.2", default-features = false }
 walkdir = "2"
 log = "0.4.0"
-env_logger = "^0.5.10"
 failure = "0.1"
 
+[dependencies.structopt-flags]
+version = "0.3"
+features = ["simplelog"]
 [profile.release]
 lto = true
