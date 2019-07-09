@@ -1,7 +1,8 @@
+use ipnet::IpNet;
 use std::default::Default;
 use std::fs::File;
 use std::io::prelude::*;
-use std::net::Ipv4Addr;
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::process::Command;
 use std::str::FromStr;
@@ -11,12 +12,12 @@ use walkdir::WalkDir;
 pub struct SystemConf {
     zfs_root: Option<String>,
     pub fs_root: Option<String>,
-    pub network: Option<Ipv4Addr>,
-    pub netmask: Option<Ipv4Addr>,
-    pub gateway: Option<Ipv4Addr>,
+    pub network: Option<IpNet>,
+    pub netmask: Option<IpAddr>,
+    pub gateway: Option<IpAddr>,
     ext_if: Option<String>,
     pub dns_name: Option<String>,
-    pub dns_ip: Option<Ipv4Addr>,
+    pub dns_ip: Option<IpAddr>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -141,19 +142,16 @@ impl FromStr for SystemConf {
             }
             if linestr.starts_with("POT_NETWORK=") {
                 default.network = match linestr.split('=').nth(1) {
-                    Some(s) => match s.split(' ').nth(0).unwrap().split('/').nth(0) {
-                        Some(s) => match s.to_string().parse::<Ipv4Addr>() {
-                            Ok(ip) => Some(ip),
-                            Err(_) => None,
-                        },
-                        None => None,
+                    Some(s) => match s.split(' ').nth(0).unwrap().to_string().parse::<IpNet>() {
+                        Ok(ip) => Some(ip),
+                        Err(_) => None,
                     },
                     None => None,
                 };
             }
             if linestr.starts_with("POT_NETMASK=") {
                 default.netmask = match linestr.split('=').nth(1) {
-                    Some(s) => match s.split(' ').nth(0).unwrap().to_string().parse::<Ipv4Addr>() {
+                    Some(s) => match s.split(' ').nth(0).unwrap().to_string().parse::<IpAddr>() {
                         Ok(ip) => Some(ip),
                         Err(_) => None,
                     },
@@ -162,7 +160,7 @@ impl FromStr for SystemConf {
             }
             if linestr.starts_with("POT_GATEWAY=") {
                 default.gateway = match linestr.split('=').nth(1) {
-                    Some(s) => match s.split(' ').nth(0).unwrap().to_string().parse::<Ipv4Addr>() {
+                    Some(s) => match s.split(' ').nth(0).unwrap().to_string().parse::<IpAddr>() {
                         Ok(ip) => Some(ip),
                         Err(_) => None,
                     },
@@ -171,7 +169,7 @@ impl FromStr for SystemConf {
             }
             if linestr.starts_with("POT_DNS_IP=") {
                 default.dns_ip = match linestr.split('=').nth(1) {
-                    Some(s) => match s.split(' ').nth(0).unwrap().to_string().parse::<Ipv4Addr>() {
+                    Some(s) => match s.split(' ').nth(0).unwrap().to_string().parse::<IpAddr>() {
                         Ok(ip) => Some(ip),
                         Err(_) => None,
                     },
@@ -242,31 +240,33 @@ impl SystemConf {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum IPType {
+pub enum NetType {
     Inherit,
-    Static,
-    Vnet,
-}
-
-impl Default for IPType {
-    fn default() -> IPType {
-        IPType::Inherit
-    }
+    Alias,
+    PublicBridge,
 }
 
 #[derive(Debug)]
 pub struct PotConf {
     pub name: String,
-    pub ip_type: IPType,
-    pub ip_addr: Option<Ipv4Addr>,
+    pub ip_addr: Option<IpAddr>,
+    pub network_type: NetType,
+}
+
+#[derive(Debug, Default)]
+pub struct PotConfVerbatim {
+    pub vnet: Option<String>,
+    pub ip4: Option<String>,
+    pub ip: Option<String>,
+    pub network_type: Option<String>,
 }
 
 impl Default for PotConf {
     fn default() -> PotConf {
         PotConf {
             name: String::default(),
-            ip_type: IPType::Inherit,
             ip_addr: None,
+            network_type: NetType::Inherit,
         }
     }
 }
@@ -307,21 +307,58 @@ pub fn get_pot_conf_list(conf: SystemConf) -> Vec<PotConf> {
             Ok(_) => (),
             Err(_) => continue,
         }
+        let mut temp_pot_conf = PotConfVerbatim::default();
         for s in conf_str.lines() {
             if s.starts_with("ip4=") {
-                let iptype = s.split('=').nth(1).unwrap();
-                match iptype {
-                    "inherit" => pot_conf.ip_type = IPType::Inherit,
-                    ip => pot_conf.ip_addr = Ipv4Addr::from_str(ip).ok(),
-                }
+                temp_pot_conf.ip4 = Some(s.split('=').nth(1).unwrap().to_string());
+            }
+            if s.starts_with("ip=") {
+                temp_pot_conf.ip = Some(s.split('=').nth(1).unwrap().to_string());
             }
             if s.starts_with("vnet=") {
-                let vnet = s.split('=').nth(1).unwrap();
-                match vnet {
-                    "true" => pot_conf.ip_type = IPType::Vnet,
-                    _ => pot_conf.ip_type = IPType::Static,
+                temp_pot_conf.vnet = Some(s.split('=').nth(1).unwrap().to_string());
+            }
+            if s.starts_with("network_type=") {
+                temp_pot_conf.network_type = Some(s.split('=').nth(1).unwrap().to_string());
+            }
+        }
+        if let Some(network_type) = temp_pot_conf.network_type {
+            pot_conf.network_type = match network_type.as_str() {
+                "inherit" => NetType::Inherit,
+                "alias" => NetType::Alias,
+                "public-bridge" => NetType::PublicBridge,
+                _ => continue,
+            };
+            if pot_conf.network_type == NetType::Alias
+                || pot_conf.network_type == NetType::PublicBridge
+            {
+                if let Some(ip_addr) = temp_pot_conf.ip {
+                    pot_conf.ip_addr = Some(IpAddr::from_str(&ip_addr).ok().unwrap())
+                } else {
+                    // Error !
+                    continue;
                 }
             }
+        } else if let Some(ip4) = temp_pot_conf.ip4 {
+            // Old pot version - compatibility mode
+            if &ip4 == "inherit" {
+                pot_conf.network_type = NetType::Inherit;
+            } else {
+                pot_conf.ip_addr = Some(IpAddr::from_str(&ip4).ok().unwrap());
+                if let Some(vnet) = temp_pot_conf.vnet {
+                    if &vnet == "true" {
+                        pot_conf.network_type = NetType::PublicBridge;
+                    } else {
+                        pot_conf.network_type = NetType::Alias;
+                    }
+                } else {
+                    // Error
+                    continue;
+                }
+            }
+        } else {
+            // Error !
+            continue;
         }
         v.push(pot_conf);
     }
@@ -383,7 +420,7 @@ mod tests {
         assert_eq!(uut.gateway.is_some(), true);
         assert_eq!(
             uut.gateway.unwrap(),
-            "192.168.0.1".parse::<Ipv4Addr>().unwrap()
+            "192.168.0.1".parse::<IpAddr>().unwrap()
         );
     }
 
@@ -393,12 +430,7 @@ mod tests {
         assert_eq!(uut.is_ok(), true);
         let uut = uut.unwrap();
         assert_eq!(uut.is_valid(), false);
-        assert_ne!(uut, SystemConf::default());
-        assert_eq!(uut.network.is_some(), true);
-        assert_eq!(
-            uut.network.unwrap(),
-            "192.168.0.0".parse::<Ipv4Addr>().unwrap()
-        );
+        assert_eq!(uut.network.is_some(), false);
     }
 
     #[test]
@@ -411,7 +443,7 @@ mod tests {
         assert_eq!(uut.network.is_some(), true);
         assert_eq!(
             uut.network.unwrap(),
-            "192.168.0.0".parse::<Ipv4Addr>().unwrap()
+            "192.168.0.0/24".parse::<IpNet>().unwrap()
         );
     }
 
@@ -458,7 +490,7 @@ mod tests {
         assert_eq!(uut.dns_ip.is_some(), true);
         assert_eq!(
             uut.dns_ip.unwrap(),
-            "192.168.240.240".parse::<Ipv4Addr>().unwrap()
+            "192.168.240.240".parse::<IpAddr>().unwrap()
         );
     }
 
@@ -472,7 +504,7 @@ mod tests {
         assert_eq!(uut.network.is_some(), true);
         assert_eq!(
             uut.network.unwrap(),
-            "192.168.0.0".parse::<Ipv4Addr>().unwrap()
+            "192.168.0.0/22".parse::<IpNet>().unwrap()
         );
     }
 
@@ -490,22 +522,22 @@ mod tests {
         assert_eq!(uut.network.is_some(), true);
         assert_eq!(
             uut.network.unwrap(),
-            "192.168.0.0".parse::<Ipv4Addr>().unwrap()
+            "192.168.0.0/24".parse::<IpNet>().unwrap()
         );
         assert_eq!(uut.netmask.is_some(), true);
         assert_eq!(
             uut.netmask.unwrap(),
-            "255.255.255.0".parse::<Ipv4Addr>().unwrap()
+            "255.255.255.0".parse::<IpAddr>().unwrap()
         );
         assert_eq!(uut.gateway.is_some(), true);
         assert_eq!(
             uut.gateway.unwrap(),
-            "192.168.0.1".parse::<Ipv4Addr>().unwrap()
+            "192.168.0.1".parse::<IpAddr>().unwrap()
         );
         assert_eq!(uut.dns_ip.is_some(), true);
         assert_eq!(
             uut.dns_ip.unwrap(),
-            "192.168.0.2".parse::<Ipv4Addr>().unwrap()
+            "192.168.0.2".parse::<IpAddr>().unwrap()
         );
         assert_eq!(uut.zfs_root.is_some(), true);
         assert_eq!(uut.zfs_root.unwrap(), "zroot/pot".to_string());

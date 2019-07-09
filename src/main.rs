@@ -1,12 +1,12 @@
 use failure::{format_err, Error};
 use log::{debug, error, info, trace};
-use potnet::pot::{get_pot_conf_list, IPType, SystemConf};
+use potnet::pot::{get_pot_conf_list, NetType, SystemConf};
 use std::collections::BTreeMap;
-use std::net::Ipv4Addr;
+use std::net::IpAddr;
 use std::process;
 use std::string::String;
 use structopt::StructOpt;
-use structopt_flags::{HostParam, HostV4Param, LogLevel};
+use structopt_flags::{HostParam, LogLevel};
 
 #[derive(Debug, StructOpt)]
 struct Opt {
@@ -41,7 +41,7 @@ enum Command {
 #[derive(Debug, StructOpt)]
 struct ValidateOpt {
     #[structopt(flatten)]
-    ip: HostV4Param,
+    ip: HostParam,
 }
 
 #[derive(Debug, StructOpt)]
@@ -50,20 +50,11 @@ struct CheckOpt {
     ip: HostParam,
 }
 
-fn show(verbose: bool, conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) {
-    let netmask = conf.netmask.unwrap().octets();
-    let net_min = conf.network.unwrap().octets();
-    let mut net_max = net_min;
-    //    net_max |= netmask;
-    net_max[3] |= !netmask[3];
-    net_max[2] |= !netmask[2];
-    net_max[1] |= !netmask[1];
-    net_max[0] |= !netmask[0];
-    let max_addr = Ipv4Addr::from(net_max);
+fn show(verbose: bool, conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
     println!("Network topology:");
-    println!("\tnetwork : {}", conf.network.unwrap());
-    println!("\tmin addr: {}", conf.network.unwrap());
-    println!("\tmax addr: {:?}", max_addr);
+    println!("\tnetwork : {}", conf.network.unwrap().trunc());
+    println!("\tmin addr: {}", conf.network.unwrap().network());
+    println!("\tmax addr: {:?}", conf.network.unwrap().broadcast());
     println!("\nAddresses already taken:");
     for (ip, opt_name) in ip_db.iter() {
         println!(
@@ -100,73 +91,51 @@ pub fn octect_incr(a: &mut [u8; 4]) {
     }
 }
 
-fn get(verbose: bool, conf: &SystemConf, ip_db: &BTreeMap<Ipv4Addr, Option<String>>) {
-    let netmask = conf.netmask.unwrap().octets();
-    let net_min = conf.network.unwrap().octets();
-    let mut net_max = net_min;
-    net_max[3] |= !netmask[3];
-    net_max[2] |= !netmask[2];
-    net_max[1] |= !netmask[1];
-    net_max[0] |= !netmask[0];
-    let mut addr: [u8; 4] = net_min;
-    loop {
-        octect_incr(&mut addr);
-        if !ip_db.contains_key(&(Ipv4Addr::from(addr))) {
+fn get(verbose: bool, conf: &SystemConf, ip_db: &BTreeMap<IpAddr, Option<String>>) {
+    for addr in conf.network.unwrap().hosts() {
+        if !ip_db.contains_key(&addr) {
             if verbose {
-                println!("{}.{}.{}.{} available", addr[0], addr[1], addr[2], addr[3]);
+                println!("{} available", addr);
             } else {
-                println!("{}.{}.{}.{}", addr[0], addr[1], addr[2], addr[3]);
+                println!("{}", addr);
             }
             break;
         } else if verbose {
-            println!(
-                "{}.{}.{}.{} already used",
-                addr[0], addr[1], addr[2], addr[3]
-            );
+            println!("{} already used", addr);
         }
     }
 }
 
 fn validate(
     _verbose: bool,
-    ip: Ipv4Addr,
+    ip: IpAddr,
     conf: &SystemConf,
-    ip_db: &BTreeMap<Ipv4Addr, Option<String>>,
+    ip_db: &BTreeMap<IpAddr, Option<String>>,
 ) -> Result<(), Error> {
     if ip_db.contains_key(&ip) {
         return Err(format_err!("Address already in use"));
     }
-
-    if ip < conf.network.unwrap() {
-        return Err(format_err!("Address outside the network"));
-    }
-    let netmask = conf.netmask.unwrap().octets();
-    let net_min = conf.network.unwrap().octets();
-    let mut net_max = net_min;
-    net_max[3] |= !netmask[3];
-    net_max[2] |= !netmask[2];
-    net_max[1] |= !netmask[1];
-    net_max[0] |= !netmask[0];
-    let max_addr = Ipv4Addr::from(net_max);
-    if ip > max_addr {
+    if !conf.network.unwrap().contains(&ip) {
         return Err(format_err!("Address outside the network"));
     }
     Ok(())
 }
 
-fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<Ipv4Addr, Option<String>>) {
-    let netmask = conf.netmask.unwrap().octets();
-    let net_min = conf.network.unwrap().octets();
-    let mut net_max = net_min;
-    net_max[3] |= !netmask[3];
-    net_max[2] |= !netmask[2];
-    net_max[1] |= !netmask[1];
-    net_max[0] |= !netmask[0];
-    let max_addr = Ipv4Addr::from(net_max);
-    ip_db.insert(max_addr, None);
+fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
+    info!("Insert network {:?}", conf.network);
+    ip_db.insert(conf.network.unwrap().network(), None);
+    info!("Insert broadcast {:?}", conf.network);
+    ip_db.insert(conf.network.unwrap().broadcast(), None);
+    info!("Insert gateway {:?}", conf.gateway);
+    ip_db.insert(conf.gateway.unwrap(), Some("default gateway".to_string()));
+    info!("Insert dns {:?}", conf.dns_ip);
+    ip_db.insert(
+        conf.dns_ip.unwrap(),
+        Some(conf.dns_name.as_ref().unwrap().to_string()),
+    );
     for v in &get_pot_conf_list(conf.clone()) {
-        if v.ip_type == IPType::Vnet {
-            info!("Insert dns {:?}", v.ip_addr);
+        if v.network_type == NetType::PublicBridge {
+            info!("Insert pot {:?}", v.ip_addr.unwrap());
             ip_db.insert(v.ip_addr.unwrap(), Some(v.name.clone()));
         }
     }
@@ -187,18 +156,10 @@ fn main() -> Result<(), Error> {
     if !conf.is_valid() {
         error!("No valid configuration found");
         println!("No valid configuration found");
+        //dbg!(conf);
         return Ok(());
     }
     let mut ip_db = BTreeMap::new();
-    info!("Insert network {:?}", conf.network);
-    ip_db.insert(conf.network.unwrap(), None);
-    info!("Insert dns {:?}", conf.dns_ip);
-    ip_db.insert(
-        conf.dns_ip.unwrap(),
-        Some(conf.dns_name.as_ref().unwrap().to_string()),
-    );
-    info!("Insert gateway {:?}", conf.gateway);
-    ip_db.insert(conf.gateway.unwrap(), Some("default gateway".to_string()));
     init_ipdb(&conf, &mut ip_db);
     match opt.subcommand {
         Command::Show => {
