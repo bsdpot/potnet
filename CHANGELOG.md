@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 ### Added
 - Add support for the new network configuration format introduced in pot 0.8
+- config-check : new command to validate the network configuration
 
 ### Changed
 - Adopted the crate IpNet to perform operations on IP addresses

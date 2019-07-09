@@ -24,6 +24,9 @@ enum Command {
     /// Provides the next available IP address
     #[structopt(name = "next")]
     Next,
+    /// Check the POT config
+    #[structopt(name = "config-check")]
+    ConfigCheck,
     /// Validate the IP address provided as parameter
     #[structopt(name = "validate")]
     Validate(ValidateOpt),
@@ -68,26 +71,6 @@ fn show(verbose: bool, conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<St
     }
     if verbose {
         println!("\nDebug information\n{:#?}", conf);
-    }
-}
-
-/// Increment an IPv4 address, give as a slice of 4 octets
-///
-/// # Examples
-///
-/// ```
-/// let mut a = [192u8, 168u8, 1u8, 255];
-/// octect_incr(&mut a);
-/// assert_eq!(a, [192u8, 168u8, 2u8, 0u8]);
-/// ```
-pub fn octect_incr(a: &mut [u8; 4]) {
-    for idx in (0..4).rev() {
-        if a[idx] == 255 {
-            a[idx] = 0;
-        } else {
-            a[idx] += 1;
-            break;
-        }
     }
 }
 
@@ -184,53 +167,27 @@ fn main() -> Result<(), Error> {
         Command::IP(_x) => {
             debug!("{} is a valid IP address", _x.ip.host_addr);
         }
+        Command::ConfigCheck => {
+            if !conf.network.unwrap().contains(&conf.gateway.unwrap()) {
+                info!(
+                    "gateway IP ({}) outside the network range ({})",
+                    conf.gateway.unwrap(),
+                    conf.network.unwrap()
+                );
+            }
+            if conf.network.unwrap().netmask() != conf.netmask.unwrap() {
+                info!(
+                    "netmask ({}) different from the network one ({})",
+                    conf.netmask.unwrap(),
+                    conf.network.unwrap()
+                );
+            }
+            if !conf.network.unwrap().contains(&conf.gateway.unwrap())
+                || conf.network.unwrap().netmask() != conf.netmask.unwrap()
+            {
+                process::exit(1);
+            }
+        }
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn octect_intr_001() {
-        let mut a = [0u8, 0u8, 0u8, 0u8];
-        octect_incr(&mut a);
-        assert_eq!(a, [0u8, 0u8, 0u8, 1u8]);
-    }
-
-    #[test]
-    fn octect_intr_002() {
-        let mut a = [0u8, 0u8, 0u8, 255];
-        octect_incr(&mut a);
-        assert_eq!(a, [0u8, 0u8, 1u8, 0u8]);
-    }
-
-    #[test]
-    fn octect_intr_003() {
-        let mut a = [0u8, 0u8, 255u8, 255u8];
-        octect_incr(&mut a);
-        assert_eq!(a, [0u8, 1u8, 0u8, 0u8]);
-    }
-
-    #[test]
-    fn octect_intr_004() {
-        let mut a = [0u8, 255u8, 255u8, 255u8];
-        octect_incr(&mut a);
-        assert_eq!(a, [1u8, 0u8, 0u8, 0u8]);
-    }
-
-    #[test]
-    fn octect_intr_005() {
-        let mut a = [255u8, 255u8, 255u8, 255u8];
-        octect_incr(&mut a);
-        assert_eq!(a, [0u8, 0u8, 0u8, 0u8]);
-    }
-
-    #[test]
-    fn octect_intr_006() {
-        let mut a = [0u8, 10u8, 255u8, 255u8];
-        octect_incr(&mut a);
-        assert_eq!(a, [0u8, 11u8, 0u8, 0u8]);
-    }
 }
