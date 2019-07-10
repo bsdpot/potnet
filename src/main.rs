@@ -30,13 +30,13 @@ enum Command {
     /// Validate the IP address provided as parameter
     #[structopt(name = "validate")]
     Validate(ValidateOpt),
-    /// Check if the arguemnt is a valid ipv4 address
+    /// Check if the argument is a valid ipv4 address
     #[structopt(name = "ip4check")]
     IP4(CheckOpt),
-    /// Check if the arguemnt is a valid ipv6 address
+    /// Check if the argument is a valid ipv6 address
     #[structopt(name = "ip6check")]
     IP6(CheckOpt),
-    /// Check if the arguemnt is a valid ip address
+    /// Check if the argument is a valid ip address
     #[structopt(name = "ipcheck")]
     IP(CheckOpt),
 }
