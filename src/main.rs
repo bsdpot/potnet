@@ -57,7 +57,7 @@ fn show(verbose: bool, conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<St
     println!("Network topology:");
     println!("\tnetwork : {}", conf.network.unwrap().trunc());
     println!("\tmin addr: {}", conf.network.unwrap().network());
-    println!("\tmax addr: {:?}", conf.network.unwrap().broadcast());
+    println!("\tmax addr: {}", conf.network.unwrap().broadcast());
     println!("\nAddresses already taken:");
     for (ip, opt_name) in ip_db.iter() {
         println!(
@@ -169,14 +169,14 @@ fn main() -> Result<(), Error> {
         }
         Command::ConfigCheck => {
             if !conf.network.unwrap().contains(&conf.gateway.unwrap()) {
-                info!(
+                error!(
                     "gateway IP ({}) outside the network range ({})",
                     conf.gateway.unwrap(),
                     conf.network.unwrap()
                 );
             }
             if conf.network.unwrap().netmask() != conf.netmask.unwrap() {
-                info!(
+                error!(
                     "netmask ({}) different from the network one ({})",
                     conf.netmask.unwrap(),
                     conf.network.unwrap()
