@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 ### Added
 - New utility, called potcpu, designed to manage cpusets for pot
+- potcpu: rebalance command, to distribute allocation all over the CPUs
 
 ## [0.2.0] 2019-07-10
 ### Added

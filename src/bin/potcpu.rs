@@ -24,6 +24,9 @@ enum Command {
     /// Show the pot virtual network status
     #[structopt(name = "get-cpu")]
     GetCpu(GetCpuOpt),
+    /// Propose a new allocation layout if needed
+    #[structopt(name = "rebalance")]
+    Rebalance,
 }
 
 #[derive(Debug, StructOpt, Copy, Clone)]
@@ -232,6 +235,51 @@ fn get_cpu(_opt: &Opt, conf: &SystemConf, cpu_amount: u32) {
     }
 }
 
+fn rebalance(_opt: &Opt, conf: &SystemConf) {
+    if let Some(cpu_counters) = get_cpu_allocation(conf) {
+        let min = cpu_counters
+            .iter()
+            .min_by_key(|(_cpu, allocation)| *allocation)
+            .unwrap();
+        let max = cpu_counters
+            .iter()
+            .max_by_key(|(_cpu, allocation)| *allocation)
+            .unwrap();
+        if (max.1 - min.1) < 1 {
+            println!("no need to rebalance");
+            return;
+        }
+        let ncpu = get_ncpu().unwrap();
+        let pot_allocations = get_cpusets(conf);
+        let mut pot_constraints = get_potcpuconstraints(&pot_allocations);
+        pot_constraints.sort_by(|a, b| a.pot_name.cmp(&b.pot_name));
+        let mut pot_new_allocations = HashMap::new();
+        let mut cpu_index_counter: u32 = 0;
+        for pot in pot_constraints {
+            let mut cpus: Vec<u32> = Vec::new();
+            for _ in 0..pot.cpus {
+                cpus.push(cpu_index_counter);
+                cpu_index_counter += 1;
+                cpu_index_counter %= ncpu;
+            }
+            pot_new_allocations.insert(pot.pot_name, cpus);
+        }
+        for (pot_name, pot_allocation) in pot_new_allocations {
+            let mut cpuset_string = String::new();
+            for cpu in pot_allocation {
+                cpuset_string.push_str(&cpu.to_string());
+                cpuset_string.push(',');
+            }
+            println!(
+                "cpuset -l {} -j {}",
+                cpuset_string.trim_end_matches(','),
+                pot_name
+            );
+        }
+    } else {
+        error!("An error occured when retrieving the current cpu allocation");
+    }
+}
 fn main() -> Result<(), Error> {
     let opt = Opt::from_args();
     opt.verbose.set_log_level();
@@ -244,10 +292,9 @@ fn main() -> Result<(), Error> {
         return Ok(());
     }
     match opt.subcommand {
-        Command::Show => {
-            show(&opt, &conf);
-        }
+        Command::Show => show(&opt, &conf),
         Command::GetCpu(cmd_opt) => get_cpu(&opt, &conf, cmd_opt.cpu_amount),
+        Command::Rebalance => rebalance(&opt, &conf),
     }
     Ok(())
 }

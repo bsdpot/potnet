@@ -260,7 +260,7 @@ dependencies = [
 
 [[package]]
 name = "potnet"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "ipnet 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
