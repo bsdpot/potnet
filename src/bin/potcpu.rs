@@ -173,39 +173,44 @@ fn get_potcpuconstraints(allocation: &HashMap<String, CpuSet>) -> Vec<PotCpuCons
 
 fn show(_opt: &Opt, conf: &SystemConf) {
     let pot_cpusets = get_cpusets(conf);
+    let pot_allocations = get_potcpuconstraints(&pot_cpusets);
     for pot_name in pot_cpusets.keys() {
         let cpuset = &pot_cpusets[pot_name];
-        println!("pot {} : {}", pot_name, cpuset);
+        let constraint_string = match pot_allocations.iter().find(|x| &x.pot_name == pot_name) {
+            Some(constraint) => constraint.cpus.to_string(),
+            None => "NA".to_string(),
+        };
+        println!("pot {}:", pot_name);
+        println!("\tCPU requested: {}", constraint_string);
+        println!("\tCPU used: {}", cpuset);
     }
-    let pot_allocations = get_potcpuconstraints(&pot_cpusets);
-    pot_allocations.iter().for_each(|x| {
-        println!("{:?}", x);
-    });
+}
+
+fn get_cpu_allocation(conf: &SystemConf) -> Option<HashMap<u32, u32>> {
+    let pot_cpusets = get_cpusets(conf);
+    if let Some(ncpu) = get_ncpu() {
+        let mut result: HashMap<u32, u32> = HashMap::new();
+        for i in 0..ncpu {
+            result.insert(i, 0);
+        }
+        for allocations in pot_cpusets.values() {
+            for cpu_num in &allocations.cpus {
+                let old_value = result.remove(cpu_num).unwrap();
+                result.insert(*cpu_num, old_value + 1);
+            }
+        }
+        Some(result)
+    } else {
+        None
+    }
 }
 
 fn get_cpu(_opt: &Opt, conf: &SystemConf, cpu_amount: u32) {
-    let pot_cpusets = get_cpusets(conf);
-    if let Some(ncpu) = get_ncpu() {
-        if cpu_amount >= ncpu {
-            return;
-        }
-        let mut cpu_hash_counters: HashMap<u32, u32> = HashMap::new();
-        for i in 0..ncpu {
-            cpu_hash_counters.insert(i, 0);
-        }
-
-        for allocations in pot_cpusets.values() {
-            for cpu_num in &allocations.cpus {
-                let old_value = cpu_hash_counters.remove(cpu_num).unwrap();
-                cpu_hash_counters.insert(*cpu_num, old_value + 1);
-            }
-        }
-        //dbg!(&cpu_hash_counters);
+    if let Some(cpu_hash_counters) = get_cpu_allocation(conf) {
         let mut sorted_cpus = cpu_hash_counters
             .into_iter()
             .sorted_by_key(|(cpu, _allocations)| *cpu)
             .sorted_by_key(|(_cpu, allocations)| *allocations);
-        //dbg!(&sorted_cpus);
         let mut cpu_string = String::new();
         for _ in 0..cpu_amount {
             let first = sorted_cpus.nth(0).unwrap().0;
@@ -213,6 +218,8 @@ fn get_cpu(_opt: &Opt, conf: &SystemConf, cpu_amount: u32) {
             cpu_string.push(',');
         }
         println!("{}", cpu_string.trim_end_matches(','));
+    } else {
+        error!("An error occured when retrieving the current cpu allocation");
     }
 }
 
