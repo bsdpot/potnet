@@ -171,7 +171,7 @@ fn get_potcpuconstraints(allocation: &HashMap<String, CpuSet>) -> Vec<PotCpuCons
     result
 }
 
-fn show(_opt: &Opt, conf: &SystemConf) {
+fn show(opt: &Opt, conf: &SystemConf) {
     let pot_cpusets = get_cpusets(conf);
     let pot_allocations = get_potcpuconstraints(&pot_cpusets);
     for pot_name in pot_cpusets.keys() {
@@ -183,6 +183,15 @@ fn show(_opt: &Opt, conf: &SystemConf) {
         println!("pot {}:", pot_name);
         println!("\tCPU requested: {}", constraint_string);
         println!("\tCPU used: {}", cpuset);
+    }
+    if opt.verbose.get_level_filter() > log::LevelFilter::Warn {
+        let cpu_allocations = get_cpu_allocation(conf).unwrap();
+        for (cpu, pots) in cpu_allocations
+            .into_iter()
+            .sorted_by_key(|(cpu, _pots)| *cpu)
+        {
+            println!("CPU {} : allocated {} pots", cpu, pots);
+        }
     }
 }
 
