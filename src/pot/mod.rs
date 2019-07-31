@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::net::IpAddr;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::str::FromStr;
 use walkdir::WalkDir;
 
@@ -25,6 +25,7 @@ pub enum PotError {
     WhichError,
     PathError,
     FileError,
+    JlsError,
 }
 
 // get pot prefix in the same way as pot does:
@@ -271,31 +272,76 @@ impl Default for PotConf {
     }
 }
 
+fn get_pot_path_list(conf: &SystemConf) -> Vec<PathBuf> {
+    let mut result = Vec::new();
+    let fsroot = conf.fs_root.clone().unwrap();
+    WalkDir::new(fsroot + "/jails")
+        .max_depth(1)
+        .min_depth(1)
+        .into_iter()
+        .filter_map(std::result::Result::ok)
+        .filter(|x| x.file_type().is_dir())
+        .for_each(|x| result.push(x.into_path()));
+    result
+}
+
+pub fn get_pot_list(conf: &SystemConf) -> Vec<String> {
+    let mut result = Vec::new();
+    for pot_dir in get_pot_path_list(conf) {
+        if let Some(pot_name) = pot_dir.file_name() {
+            if let Some(pot_name_str) = pot_name.to_str() {
+                result.push(pot_name_str.to_string());
+            }
+        }
+    }
+    result
+}
+
+fn is_pot_running(pot_name: &str) -> Result<bool, PotError> {
+    let status = Command::new("/usr/sbin/jls")
+        .arg("-j")
+        .arg(pot_name)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .status();
+    if let Ok(status) = status {
+        Ok(status.success())
+    } else {
+        Err(PotError::JlsError)
+    }
+}
+
+pub fn get_running_pot_list(conf: &SystemConf) -> Vec<String> {
+    let mut result = Vec::new();
+    for pot in get_pot_list(conf) {
+        if let Ok(status) = is_pot_running(&pot) {
+            if status {
+                result.push(pot);
+            }
+        }
+    }
+    result
+}
+
 pub fn get_pot_conf_list(conf: SystemConf) -> Vec<PotConf> {
     let mut v: Vec<PotConf> = Vec::new();
     if !conf.is_valid() {
         return v;
     }
 
-    let fsroot = conf.fs_root.unwrap();
+    let fsroot = conf.fs_root.clone().unwrap();
     let pdir = fsroot.clone() + "/jails/";
-    for pot_dir in WalkDir::new(fsroot.clone() + "/jails")
-        .max_depth(1)
-        .min_depth(1)
-        .into_iter()
-        .filter_map(std::result::Result::ok)
-        .filter(|x| x.file_type().is_dir())
-    {
+    for mut dir_path in get_pot_path_list(&conf) {
         let mut pot_conf = PotConf::default();
-        pot_conf.name = pot_dir
-            .path()
+        pot_conf.name = dir_path
+            .clone()
             .strip_prefix(&pdir)
             .ok()
             .unwrap()
             .to_str()
             .unwrap()
             .to_string();
-        let mut dir_path = pot_dir.path().to_path_buf();
         dir_path.push("conf");
         dir_path.push("pot.conf");
         let mut conf_file = match File::open(dir_path.as_path()) {

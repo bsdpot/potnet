@@ -10,9 +10,14 @@ walkdir = "2"
 log = "0.4.0"
 failure = "0.1"
 ipnet = "2"
+itertools = "0.8"
 
 [dependencies.structopt-flags]
 version = "0.3"
 features = ["simplelog"]
 [profile.release]
 lto = true
+
+[[bin]]
+name = "potcpu"
+path = "src/bin/potcpu.rs"
