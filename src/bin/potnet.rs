@@ -3,7 +3,6 @@ use log::{debug, error, info, trace};
 use potnet::pot::{get_pot_conf_list, NetType, SystemConf};
 use std::collections::BTreeMap;
 use std::net::IpAddr;
-use std::process;
 use std::string::String;
 use structopt::StructOpt;
 use structopt_flags::{HostParam, LogLevel};
@@ -53,7 +52,7 @@ struct CheckOpt {
     ip: HostParam,
 }
 
-fn show(verbose: bool, conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
+fn show(opt: &Opt, conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
     println!("Network topology:");
     println!("\tnetwork : {}", conf.network.unwrap().trunc());
     println!("\tmin addr: {}", conf.network.unwrap().network());
@@ -69,28 +68,27 @@ fn show(verbose: bool, conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<St
             }
         );
     }
-    if verbose {
+    if opt.verbose.get_level_filter() > log::LevelFilter::Warn {
         println!("\nDebug information\n{:#?}", conf);
     }
 }
 
-fn get(verbose: bool, conf: &SystemConf, ip_db: &BTreeMap<IpAddr, Option<String>>) {
+fn get(opt: &Opt, conf: &SystemConf, ip_db: &BTreeMap<IpAddr, Option<String>>) {
     for addr in conf.network.unwrap().hosts() {
         if !ip_db.contains_key(&addr) {
-            if verbose {
+            if opt.verbose.get_level_filter() > log::LevelFilter::Warn {
                 println!("{} available", addr);
             } else {
                 println!("{}", addr);
             }
             break;
-        } else if verbose {
+        } else if opt.verbose.get_level_filter() > log::LevelFilter::Warn {
             println!("{} already used", addr);
         }
     }
 }
 
 fn validate(
-    _verbose: bool,
     ip: IpAddr,
     conf: &SystemConf,
     ip_db: &BTreeMap<IpAddr, Option<String>>,
@@ -129,43 +127,36 @@ fn main() -> Result<(), Error> {
     opt.verbose.set_log_level();
     trace!("potnet start");
 
-    let verbosity = if opt.verbose.get_level_filter() > log::LevelFilter::Warn {
-        info!("Verbose output activated");
-        true
-    } else {
-        false
-    };
     let conf = SystemConf::new();
     if !conf.is_valid() {
         error!("No valid configuration found");
         println!("No valid configuration found");
-        //dbg!(conf);
         return Ok(());
     }
     let mut ip_db = BTreeMap::new();
     init_ipdb(&conf, &mut ip_db);
     match opt.subcommand {
         Command::Show => {
-            show(verbosity, &conf, &mut ip_db);
+            show(&opt, &conf, &mut ip_db);
         }
         Command::Next => {
-            get(verbosity, &conf, &ip_db);
+            get(&opt, &conf, &ip_db);
         }
-        Command::Validate(_vopt) => {
-            return validate(verbosity, _vopt.ip.host_addr, &conf, &ip_db);
+        Command::Validate(vopt) => {
+            return validate(vopt.ip.host_addr, &conf, &ip_db);
         }
-        Command::IP4(_x) => {
-            if !_x.ip.host_addr.is_ipv4() {
-                process::exit(1);
+        Command::IP4(x) => {
+            if !x.ip.host_addr.is_ipv4() {
+                std::process::exit(1);
             }
         }
-        Command::IP6(_x) => {
-            if !_x.ip.host_addr.is_ipv6() {
-                process::exit(1);
+        Command::IP6(x) => {
+            if !x.ip.host_addr.is_ipv6() {
+                std::process::exit(1);
             }
         }
-        Command::IP(_x) => {
-            debug!("{} is a valid IP address", _x.ip.host_addr);
+        Command::IP(x) => {
+            debug!("{} is a valid IP address", x.ip.host_addr);
         }
         Command::ConfigCheck => {
             if !conf.network.unwrap().contains(&conf.gateway.unwrap()) {
@@ -185,7 +176,7 @@ fn main() -> Result<(), Error> {
             if !conf.network.unwrap().contains(&conf.gateway.unwrap())
                 || conf.network.unwrap().netmask() != conf.netmask.unwrap()
             {
-                process::exit(1);
+                std::process::exit(1);
             }
         }
     }
