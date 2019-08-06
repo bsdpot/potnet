@@ -239,9 +239,11 @@ fn rebalance(_opt: &Opt, conf: &SystemConf) -> Result<(), Error> {
         .iter()
         .max_by_key(|(_cpu, allocation)| *allocation)
         .unwrap();
-    if (max.1 - min.1) < 1 {
-        println!("no need to rebalance");
+    if (max.1 - min.1) <= 1 {
+        warn!("no need to rebalance");
         return Ok(());
+    } else {
+        info!("rebalance needed : min {} max {}", min.1, max.1);
     }
     let ncpu = get_ncpu()?;
     let pot_allocations = get_cpusets(conf)?;
