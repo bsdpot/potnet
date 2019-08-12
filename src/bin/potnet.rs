@@ -166,6 +166,13 @@ fn main() -> Result<(), Error> {
                     conf.network.unwrap()
                 );
             }
+            if !conf.network.unwrap().contains(&conf.dns_ip.unwrap()) {
+                error!(
+                    "DNS IP ({}) outside the network range ({})",
+                    conf.dns_ip.unwrap(),
+                    conf.network.unwrap()
+                );
+            }
             if conf.network.unwrap().netmask() != conf.netmask.unwrap() {
                 error!(
                     "netmask ({}) different from the network one ({})",
