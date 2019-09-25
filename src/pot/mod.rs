@@ -509,6 +509,12 @@ mod tests {
     use super::*;
 
     #[test]
+    fn bridge_conf_fromstr_001() {
+        let uut = BridgeConf::from_str("");
+        assert_eq!(uut.is_ok(), false);
+    }
+
+    #[test]
     fn system_conf_default() {
         let uut = SystemConf::default();
         assert_eq!(uut.is_valid(), false);
