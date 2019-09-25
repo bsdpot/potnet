@@ -1,13 +1,15 @@
 use failure::{format_err, Error};
+use ipnet::IpNet;
 use log::{debug, error, info, trace};
-use potnet::pot::{get_pot_conf_list, NetType, SystemConf};
+use potnet::pot::{get_bridges_list, get_pot_conf_list, BridgeConf, NetType, SystemConf};
 use std::collections::BTreeMap;
 use std::net::IpAddr;
+use std::net::IpAddr::{V4, V6};
 use std::string::String;
 use structopt::StructOpt;
 use structopt_flags::{HostParam, LogLevel};
 
-#[derive(Debug, StructOpt)]
+#[derive(Clone, Debug, StructOpt)]
 struct Opt {
     #[structopt(flatten)]
     verbose: structopt_flags::QuietVerbose,
@@ -15,14 +17,14 @@ struct Opt {
     subcommand: Command,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Clone, Debug, StructOpt)]
 enum Command {
     /// Show the pot virtual network status
     #[structopt(name = "show")]
     Show,
     /// Provides the next available IP address
     #[structopt(name = "next")]
-    Next,
+    Next(NextOpt),
     /// Check the POT config
     #[structopt(name = "config-check")]
     ConfigCheck,
@@ -38,18 +40,35 @@ enum Command {
     /// Check if the argument is a valid ip address
     #[structopt(name = "ipcheck")]
     IP(CheckOpt),
+    /// Provide the next available network
+    #[structopt(name = "new-net")]
+    NewNetwork(NewNetOpt),
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Clone, Debug, StructOpt)]
+struct NextOpt {
+    /// The name of the private bridge, if the IP blongs to it
+    #[structopt(short = "-b", long = "--bridge-name")]
+    bridge_name: Option<String>,
+}
+
+#[derive(Clone, Debug, StructOpt)]
 struct ValidateOpt {
     #[structopt(flatten)]
     ip: HostParam,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Clone, Debug, StructOpt)]
 struct CheckOpt {
     #[structopt(flatten)]
     ip: HostParam,
+}
+
+#[derive(Clone, Debug, StructOpt)]
+struct NewNetOpt {
+    /// The number of host to be included in the network (gateway excluded)
+    #[structopt(short = "-s")]
+    host_number: u16,
 }
 
 fn show(opt: &Opt, conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
@@ -88,6 +107,83 @@ fn get(opt: &Opt, conf: &SystemConf, ip_db: &BTreeMap<IpAddr, Option<String>>) {
     }
 }
 
+fn get_network_size(host_number: u16) -> Option<u8> {
+    if host_number == 0 {
+        return None;
+    }
+    let mut max_hosts = 4u16;
+    let mut result = 2;
+    loop {
+        if host_number <= max_hosts - 2 {
+            break;
+        }
+        max_hosts <<= 1;
+        result += 1;
+    }
+    Some(result)
+}
+
+fn get_prefix_length(host_number: u16, ip_addr: &IpAddr) -> Option<u8> {
+    if let Some(network_size) = get_network_size(host_number) {
+        Some(
+            match ip_addr {
+                V4(_) => 32,
+                V6(_) => 128,
+            } - network_size,
+        )
+    } else {
+        None
+    }
+}
+
+fn is_subnet_usable(subnet: IpNet, ip_db: &BTreeMap<IpAddr, Option<String>>) -> bool {
+    for ip in ip_db.keys() {
+        if subnet.contains(ip) {
+            return false;
+        }
+    }
+    true
+}
+
+fn new_net(host_number: u16, conf: &SystemConf, ip_db: &BTreeMap<IpAddr, Option<String>>) {
+    if let Some(prefix_length) = get_prefix_length(host_number, &conf.gateway.unwrap()) {
+        info!("Subnet prefix length {}", prefix_length);
+        if let Ok(subnets) = conf.network.unwrap().subnets(prefix_length) {
+            //info!("{} subnets to evaluate", subnets.count());
+            for s in subnets {
+                if is_subnet_usable(s, ip_db) {
+                    println!("net={}", s);
+                    println!("gateway={}", s.hosts().nth(0).unwrap());
+                    break;
+                } else {
+                    debug!("{} not usable", s);
+                }
+            }
+        }
+    }
+}
+
+fn get_next_from_bridge(opt: &Opt, conf: &SystemConf, bridge_name: &str) {
+    let bridges_list = get_bridges_list(conf);
+    if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
+        info!("bridge {} found", bridge.name);
+        let mut ip_db = BTreeMap::new();
+        init_bridge_ipdb(&bridge, conf, &mut ip_db);
+        for addr in bridge.network.hosts() {
+            if !ip_db.contains_key(&addr) {
+                if opt.verbose.get_level_filter() > log::LevelFilter::Warn {
+                    println!("{} available", addr);
+                } else {
+                    println!("{}", addr);
+                }
+                break;
+            }
+        }
+    } else {
+        error!("bridge {} not found", bridge_name);
+    }
+}
+
 fn validate(
     ip: IpAddr,
     conf: &SystemConf,
@@ -100,6 +196,31 @@ fn validate(
         return Err(format_err!("Address outside the network"));
     }
     Ok(())
+}
+
+fn init_bridge_ipdb(
+    bridge: &BridgeConf,
+    conf: &SystemConf,
+    ip_db: &mut BTreeMap<IpAddr, Option<String>>,
+) {
+    info!("Evaluating bridge {:?}", bridge);
+    // add the network address
+    let mut description = String::from(bridge.name.as_str());
+    description.push_str(" bridge - network ");
+    ip_db.insert(bridge.network.network(), Some(description));
+    // add the broadcast address
+    let mut description = String::from(bridge.name.as_str());
+    description.push_str(" bridge - broadcast ");
+    ip_db.insert(bridge.network.broadcast(), Some(description));
+    // add the broadcast address
+    let mut description = String::from(bridge.name.as_str());
+    description.push_str(" bridge - gateway ");
+    ip_db.insert(bridge.gateway, Some(description));
+    for v in &get_pot_conf_list(conf.clone()) {
+        if v.network_type == NetType::PublicBridge && bridge.network.contains(&v.ip_addr.unwrap()) {
+            ip_db.insert(v.ip_addr.unwrap(), Some(v.name.clone()));
+        }
+    }
 }
 
 fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
@@ -120,6 +241,29 @@ fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
             ip_db.insert(v.ip_addr.unwrap(), Some(v.name.clone()));
         }
     }
+    for b in &get_bridges_list(conf) {
+        info!("Evaluating bridge {:?}", b);
+        // add the network address
+        let mut description = String::from(b.name.as_str());
+        description.push_str(" bridge - network ");
+        ip_db.insert(b.network.network(), Some(description));
+        // add the broadcast address
+        let mut description = String::from(b.name.as_str());
+        description.push_str(" bridge - broadcast ");
+        ip_db.insert(b.network.broadcast(), Some(description));
+        // add the broadcast address
+        let mut description = String::from(b.name.as_str());
+        description.push_str(" bridge - gateway ");
+        ip_db.insert(b.gateway, Some(description));
+        // add all the not yet allocated hosts
+        let mut description = String::from(b.name.as_str());
+        description.push_str(" bridge - allocated address");
+        for host in b.network.hosts() {
+            ip_db
+                .entry(host)
+                .or_insert_with(|| Some(description.clone()));
+        }
+    }
 }
 
 fn main() -> Result<(), Error> {
@@ -135,12 +279,18 @@ fn main() -> Result<(), Error> {
     }
     let mut ip_db = BTreeMap::new();
     init_ipdb(&conf, &mut ip_db);
+    let opt_clone = opt.clone();
     match opt.subcommand {
         Command::Show => {
             show(&opt, &conf, &mut ip_db);
         }
-        Command::Next => {
-            get(&opt, &conf, &ip_db);
+        Command::Next(nopt) => {
+            if let Some(bridge_name) = nopt.bridge_name {
+                debug!("get an ip for the bridge {}", bridge_name);
+                get_next_from_bridge(&opt_clone, &conf, &bridge_name);
+            } else {
+                get(&opt_clone, &conf, &ip_db);
+            }
         }
         Command::Validate(vopt) => {
             return validate(vopt.ip.host_addr, &conf, &ip_db);
@@ -186,6 +336,72 @@ fn main() -> Result<(), Error> {
                 std::process::exit(1);
             }
         }
+        Command::NewNetwork(x) => {
+            if x.host_number <= 1 {
+                error!("A network with size {} is too small", x.host_number);
+                std::process::exit(1);
+            }
+            new_net(x.host_number, &conf, &ip_db);
+        }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{Ipv4Addr, Ipv6Addr};
+
+    #[test]
+    fn get_network_size_000() {
+        let uut = get_network_size(2);
+        assert_eq!(uut, Some(2));
+    }
+    #[test]
+    fn get_network_size_001() {
+        let uut = get_network_size(5);
+        assert_eq!(uut, Some(3));
+    }
+    #[test]
+    fn get_network_size_002() {
+        let uut = get_network_size(7);
+        assert_eq!(uut, Some(4));
+    }
+
+    #[test]
+    fn get_prefix_length_000() {
+        let ip_addr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+        let uut = get_prefix_length(2, &ip_addr);
+        assert_eq!(uut, Some(30));
+    }
+    #[test]
+    fn get_prefix_length_001() {
+        let ip_addr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+        let uut = get_prefix_length(5, &ip_addr);
+        assert_eq!(uut, Some(29));
+    }
+    #[test]
+    fn get_prefix_length_002() {
+        let ip_addr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+        let uut = get_prefix_length(9, &ip_addr);
+        assert_eq!(uut, Some(28));
+    }
+    #[test]
+    fn get_prefix_length_010() {
+        let ip_addr = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
+        let uut = get_prefix_length(2, &ip_addr);
+        assert_eq!(uut, Some(126));
+    }
+    #[test]
+    fn get_prefix_length_011() {
+        let ip_addr = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
+        let uut = get_prefix_length(5, &ip_addr);
+        assert_eq!(uut, Some(125));
+    }
+    #[test]
+    fn get_prefix_length_012() {
+        let ip_addr = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
+        let uut = get_prefix_length(9, &ip_addr);
+        assert_eq!(uut, Some(124));
+    }
 }

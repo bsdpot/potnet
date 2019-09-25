@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- new-net: add a command to get a subnet of some specified size
+- next: add support for bridges
+
 ## [0.3.2] 2019-08-14
 ### Fixed
 - structopt-flags: update crates to integrate a fix

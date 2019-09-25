@@ -240,6 +240,99 @@ impl SystemConf {
     }
 }
 
+#[derive(Debug)]
+pub struct BridgeConf {
+    pub name: String,
+    pub network: IpNet,
+    pub gateway: IpAddr,
+}
+
+impl FromStr for BridgeConf {
+    type Err = PotError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let lines: Vec<String> = s
+            .to_string()
+            .lines()
+            .map(|x| x.trim().to_string())
+            .filter(|x| !x.starts_with('#'))
+            .collect();
+        let mut name = None;
+        let mut network = None;
+        let mut gateway = None;
+        for linestr in &lines {
+            if linestr.starts_with("name=") {
+                name = match linestr.split('=').nth(1) {
+                    Some(s) => Some(s.split(' ').nth(0).unwrap().to_string()),
+                    None => None,
+                }
+            }
+            if linestr.starts_with("net=") {
+                let temp_string = match linestr.split('=').nth(1) {
+                    Some(s) => s.split(' ').nth(0).unwrap().to_string(),
+                    None => "".to_string(),
+                };
+                network = match temp_string.parse() {
+                    Ok(n) => Some(n),
+                    Err(_) => None,
+                }
+            }
+            if linestr.starts_with("gateway=") {
+                let temp_string = match linestr.split('=').nth(1) {
+                    Some(s) => s.split(' ').nth(0).unwrap().to_string(),
+                    None => "".to_string(),
+                };
+                gateway = match temp_string.parse() {
+                    Ok(n) => Some(n),
+                    Err(_) => None,
+                }
+            }
+        }
+        if name.is_some() && network.is_some() && gateway.is_some() {
+            Ok(BridgeConf {
+                name: name.unwrap(),
+                network: network.unwrap(),
+                gateway: gateway.unwrap(),
+            })
+        } else {
+            Err(PotError::FileError)
+        }
+    }
+}
+pub fn get_bridges_path_list(conf: &SystemConf) -> Vec<PathBuf> {
+    let mut result = Vec::new();
+    let fsroot = conf.fs_root.clone().unwrap();
+    WalkDir::new(fsroot + "/bridges")
+        .max_depth(1)
+        .min_depth(1)
+        .into_iter()
+        .filter_map(std::result::Result::ok)
+        .filter(|x| x.file_type().is_file())
+        .for_each(|x| result.push(x.into_path()));
+    result
+}
+
+pub fn get_bridges_list(conf: &SystemConf) -> Vec<BridgeConf> {
+    let path_list = get_bridges_path_list(conf);
+    let mut result = Vec::new();
+    for f in path_list {
+        let mut bridge_file = match File::open(f.as_path()) {
+            Ok(x) => x,
+            Err(_) => continue,
+        };
+        let mut conf_str = String::new();
+        match bridge_file.read_to_string(&mut conf_str) {
+            Ok(_) => (),
+            Err(_) => continue,
+        }
+        if let Ok(bridge_conf) = conf_str.parse() {
+            result.push(bridge_conf);
+        } else {
+            continue;
+        }
+    }
+    result
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum NetType {
     Inherit,
