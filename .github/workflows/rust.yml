@@ -4,7 +4,6 @@ on: [push, pull_request]
 
 jobs:
   build:
-
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -13,6 +12,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - name: Header
+      run: rustc -Vv
     - name: Build
       run: cargo build --verbose
     - name: Run tests
