@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - new-net: add a command to get a subnet of some specified size
 - next: add support for bridges
+- validate: add support for bridges
 
 ## [0.3.2] 2019-08-14
 ### Fixed

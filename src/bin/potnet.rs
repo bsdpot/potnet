@@ -56,6 +56,9 @@ struct NextOpt {
 struct ValidateOpt {
     #[structopt(flatten)]
     ip: HostParam,
+    /// The name of the private bridge, if the IP blongs to it
+    #[structopt(short = "-b", long = "--bridge-name")]
+    bridge_name: Option<String>,
 }
 
 #[derive(Clone, Debug, StructOpt)]
@@ -184,6 +187,28 @@ fn get_next_from_bridge(opt: &Opt, conf: &SystemConf, bridge_name: &str) {
     }
 }
 
+fn validate_with_bridge(conf: &SystemConf, bridge_name: &str, ip: IpAddr) -> Result<(), Error> {
+    let bridges_list = get_bridges_list(conf);
+    if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
+        info!("bridge {} found", bridge.name);
+        let mut ip_db = BTreeMap::new();
+        init_bridge_ipdb(&bridge, conf, &mut ip_db);
+        // the ip address is in the bridge network
+        if !bridge.network.contains(&ip) {
+            error!("ip {} not in the bridge network {}", ip, bridge.network);
+            return Err(format_err!("Ip outside the bridge network"));
+        }
+        // the ip is already in use
+        if ip_db.contains_key(&ip) {
+            error!("ip {} already in use", ip);
+            return Err(format_err!("Ip already used"));
+        }
+    } else {
+        return Err(format_err!("bridge {} not found", bridge_name));
+    }
+    Ok(())
+}
+
 fn validate(
     ip: IpAddr,
     conf: &SystemConf,
@@ -293,7 +318,15 @@ fn main() -> Result<(), Error> {
             }
         }
         Command::Validate(vopt) => {
-            return validate(vopt.ip.host_addr, &conf, &ip_db);
+            if let Some(bridge_name) = vopt.bridge_name {
+                debug!(
+                    "validate the ip {} for the bridge {}",
+                    &vopt.ip.host_addr, bridge_name
+                );
+                return validate_with_bridge(&conf, &bridge_name, vopt.ip.host_addr);
+            } else {
+                return validate(vopt.ip.host_addr, &conf, &ip_db);
+            }
         }
         Command::IP4(x) => {
             if !x.ip.host_addr.is_ipv4() {
