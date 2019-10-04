@@ -242,7 +242,9 @@ fn init_bridge_ipdb(
     description.push_str(" bridge - gateway ");
     ip_db.insert(bridge.gateway, Some(description));
     for v in &get_pot_conf_list(conf.clone()) {
-        if v.network_type == NetType::PublicBridge && bridge.network.contains(&v.ip_addr.unwrap()) {
+        if (v.network_type == NetType::PublicBridge || v.network_type == NetType::PrivateBridge)
+            && bridge.network.contains(&v.ip_addr.unwrap())
+        {
             ip_db.insert(v.ip_addr.unwrap(), Some(v.name.clone()));
         }
     }
@@ -261,7 +263,7 @@ fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
         Some(conf.dns_name.as_ref().unwrap().to_string()),
     );
     for v in &get_pot_conf_list(conf.clone()) {
-        if v.network_type == NetType::PublicBridge {
+        if v.network_type == NetType::PublicBridge || v.network_type == NetType::PrivateBridge {
             info!("Insert pot {:?}", v.ip_addr.unwrap());
             ip_db.insert(v.ip_addr.unwrap(), Some(v.name.clone()));
         }

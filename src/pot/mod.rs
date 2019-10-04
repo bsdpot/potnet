@@ -356,6 +356,7 @@ pub enum NetType {
     Inherit,
     Alias,
     PublicBridge,
+    PrivateBridge,
 }
 
 #[derive(Debug)]
@@ -484,10 +485,12 @@ pub fn get_pot_conf_list(conf: SystemConf) -> Vec<PotConf> {
                 "inherit" => NetType::Inherit,
                 "alias" => NetType::Alias,
                 "public-bridge" => NetType::PublicBridge,
+                "private-bridge" => NetType::PrivateBridge,
                 _ => continue,
             };
             if pot_conf.network_type == NetType::Alias
                 || pot_conf.network_type == NetType::PublicBridge
+                || pot_conf.network_type == NetType::PrivateBridge
             {
                 if let Some(ip_addr) = temp_pot_conf.ip {
                     pot_conf.ip_addr = Some(IpAddr::from_str(&ip_addr).ok().unwrap())
