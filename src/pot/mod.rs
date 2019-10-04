@@ -247,6 +247,29 @@ pub struct BridgeConf {
     pub gateway: IpAddr,
 }
 
+impl BridgeConf {
+    fn optional_new(
+        o_name: Option<String>,
+        o_network: Option<IpNet>,
+        o_gateway: Option<IpAddr>,
+    ) -> Option<BridgeConf> {
+        if let Some(name) = o_name {
+            if let Some(network) = o_network {
+                if let Some(gateway) = o_gateway {
+                    if network.contains(&gateway) {
+                        return Some(BridgeConf {
+                            name,
+                            network,
+                            gateway,
+                        });
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
 impl FromStr for BridgeConf {
     type Err = PotError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -287,14 +310,9 @@ impl FromStr for BridgeConf {
                 }
             }
         }
-        if name.is_some() && network.is_some() && gateway.is_some() {
-            Ok(BridgeConf {
-                name: name.unwrap(),
-                network: network.unwrap(),
-                gateway: gateway.unwrap(),
-            })
-        } else {
-            Err(PotError::FileError)
+        match BridgeConf::optional_new(name, network, gateway) {
+            Some(bridge) => Ok(bridge),
+            None => Err(PotError::FileError),
         }
     }
 }
@@ -511,6 +529,30 @@ mod tests {
     #[test]
     fn bridge_conf_fromstr_001() {
         let uut = BridgeConf::from_str("");
+        assert_eq!(uut.is_ok(), false);
+    }
+
+    #[test]
+    fn bridge_conf_fromstr_002() {
+        let uut = BridgeConf::from_str("net=10.192.0.24/29");
+        assert_eq!(uut.is_ok(), false);
+    }
+
+    #[test]
+    fn bridge_conf_fromstr_003() {
+        let uut = BridgeConf::from_str("gateway=10.192.0.24");
+        assert_eq!(uut.is_ok(), false);
+    }
+
+    #[test]
+    fn bridge_conf_fromstr_004() {
+        let uut = BridgeConf::from_str("name=test-bridge");
+        assert_eq!(uut.is_ok(), false);
+    }
+
+    #[test]
+    fn bridge_conf_fromstr_005() {
+        let uut = BridgeConf::from_str("net=10.192.0.24/29\ngateway=10.192.1.25\nname=test-bridge");
         assert_eq!(uut.is_ok(), false);
     }
 
