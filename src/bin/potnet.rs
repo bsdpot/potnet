@@ -43,6 +43,9 @@ enum Command {
     /// Provide the next available network
     #[structopt(name = "new-net")]
     NewNetwork(NewNetOpt),
+    /// Generate the etc/hosts file with all know hosts in the specific bridge
+    #[structopt(name = "etc-hosts")]
+    EtcHosts(NextOpt),
 }
 
 #[derive(Clone, Debug, StructOpt)]
@@ -184,6 +187,38 @@ fn get_next_from_bridge(opt: &Opt, conf: &SystemConf, bridge_name: &str) {
         }
     } else {
         error!("bridge {} not found", bridge_name);
+    }
+}
+
+fn get_hosts_from_bridge(_opt: &Opt, conf: &SystemConf, bridge_name: &str) {
+    let bridges_list = get_bridges_list(conf);
+    if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
+        info!("bridge {} found", bridge.name);
+        let mut ip_db = BTreeMap::new();
+        info!("Evaluating bridge {:?}", bridge);
+        for v in &get_pot_conf_list(conf.clone()) {
+            if v.network_type == NetType::PrivateBridge
+                && bridge.network.contains(&v.ip_addr.unwrap())
+            {
+                ip_db.insert(v.ip_addr.unwrap(), v.name.clone());
+            }
+        }
+        for (ip, hostname) in ip_db {
+            println!("{} {}", ip, hostname);
+        }
+    }
+}
+
+fn get_hosts_for_public_bridge(_opt: &Opt, conf: &SystemConf) {
+    let mut ip_db = BTreeMap::new();
+    for v in &get_pot_conf_list(conf.clone()) {
+        if v.network_type == NetType::PublicBridge
+        {
+            ip_db.insert(v.ip_addr.unwrap(), v.name.clone());
+        }
+    }
+    for (ip, hostname) in ip_db {
+        println!("{} {}", ip, hostname);
     }
 }
 
@@ -377,6 +412,14 @@ fn main() -> Result<(), Error> {
                 std::process::exit(1);
             }
             new_net(x.host_number, &conf, &ip_db);
+        }
+        Command::EtcHosts(ehopt) => {
+            if let Some(bridge_name) = ehopt.bridge_name {
+                debug!("get an ip for the bridge {}", bridge_name);
+                get_hosts_from_bridge(&opt_clone, &conf, &bridge_name);
+            } else {
+                get_hosts_for_public_bridge(&opt_clone, &conf);
+            }
         }
     }
     Ok(())
