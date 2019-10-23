@@ -443,7 +443,7 @@ pub fn get_pot_conf_list(conf: SystemConf) -> Vec<PotConf> {
     }
 
     let fsroot = conf.fs_root.clone().unwrap();
-    let pdir = fsroot.clone() + "/jails/";
+    let pdir = fsroot + "/jails/";
     for mut dir_path in get_pot_path_list(&conf) {
         let mut pot_conf = PotConf::default();
         pot_conf.name = dir_path

@@ -63,21 +63,21 @@ fn allocation_from_utf8(v: &[u8]) -> Result<Allocation, PotCpuError> {
                     .filter(std::result::Result::is_ok)
                     .map(std::result::Result::unwrap)
                     .collect();
-                return Ok(result);
+                Ok(result)
             } else {
-                return Err(PotCpuError::StdoutMalformed {
+                Err(PotCpuError::StdoutMalformed {
                     command: "cpuset".to_string(),
-                });
+                })
             }
         } else {
-            return Err(PotCpuError::NoStdout {
+            Err(PotCpuError::NoStdout {
                 command: "cpuset".to_string(),
-            });
+            })
         }
     } else {
-        return Err(PotCpuError::Utf8 {
+        Err(PotCpuError::Utf8 {
             command: "cpuset".to_string(),
-        });
+        })
     }
 }
 
