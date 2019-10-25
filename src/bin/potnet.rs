@@ -21,10 +21,10 @@ struct Opt {
 enum Command {
     /// Show the pot virtual network status
     #[structopt(name = "show")]
-    Show,
+    Show(BridgeOpt),
     /// Provides the next available IP address
     #[structopt(name = "next")]
-    Next(NextOpt),
+    Next(BridgeOpt),
     /// Check the POT config
     #[structopt(name = "config-check")]
     ConfigCheck,
@@ -45,12 +45,12 @@ enum Command {
     NewNetwork(NewNetOpt),
     /// Generate the etc/hosts file with all know hosts in the specific bridge
     #[structopt(name = "etc-hosts")]
-    EtcHosts(NextOpt),
+    EtcHosts(BridgeOpt),
 }
 
 #[derive(Clone, Debug, StructOpt)]
-struct NextOpt {
-    /// The name of the private bridge, if the IP blongs to it
+struct BridgeOpt {
+    /// The name of a private bridge
     #[structopt(short = "-b", long = "--bridge-name")]
     bridge_name: Option<String>,
 }
@@ -95,6 +95,27 @@ fn show(opt: &Opt, conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<String
     }
     if opt.verbose.get_level_filter() > log::LevelFilter::Warn {
         println!("\nDebug information\n{:#?}", conf);
+    }
+}
+
+fn show_bridge(_opt: &Opt, conf: &SystemConf, bridge_name: &str) {
+    let bridges_list = get_bridges_list(conf);
+    if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
+        info!("bridge {} found", bridge.name);
+        let mut ip_db = BTreeMap::new();
+        init_bridge_ipdb(&bridge, conf, &mut ip_db);
+        for (ip, opt_name) in ip_db.iter() {
+            println!(
+                "\t{}\t{}",
+                ip,
+                match opt_name {
+                    Some(s) => s,
+                    None => "",
+                }
+            );
+        }
+    } else {
+        error!("bridge {} not found", bridge_name);
     }
 }
 
@@ -212,8 +233,7 @@ fn get_hosts_from_bridge(_opt: &Opt, conf: &SystemConf, bridge_name: &str) {
 fn get_hosts_for_public_bridge(_opt: &Opt, conf: &SystemConf) {
     let mut ip_db = BTreeMap::new();
     for v in &get_pot_conf_list(conf.clone()) {
-        if v.network_type == NetType::PublicBridge
-        {
+        if v.network_type == NetType::PublicBridge {
             ip_db.insert(v.ip_addr.unwrap(), v.name.clone());
         }
     }
@@ -343,8 +363,12 @@ fn main() -> Result<(), Error> {
     init_ipdb(&conf, &mut ip_db);
     let opt_clone = opt.clone();
     match opt.subcommand {
-        Command::Show => {
-            show(&opt, &conf, &mut ip_db);
+        Command::Show(bopt) => {
+            if let Some(bridge_name) = bopt.bridge_name {
+                show_bridge(&opt_clone, &conf, &bridge_name);
+            } else {
+                show(&opt_clone, &conf, &mut ip_db);
+            }
         }
         Command::Next(nopt) => {
             if let Some(bridge_name) = nopt.bridge_name {
