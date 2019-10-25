@@ -8,6 +8,7 @@ use structopt::StructOpt;
 use structopt_flags::{LogLevel, QuietVerbose};
 
 #[derive(Debug, StructOpt)]
+#[structopt(name = "potcpu")]
 struct Opt {
     #[structopt(flatten)]
     verbose: QuietVerbose,

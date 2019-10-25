@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - show: add support for bridges
 
+### Fixed
+- potcpu: application name in structopt messages
+
 ## [0.4.1] 2019-10-23
 ### Added
 - etc-hosts: add a subcomand to generate /etc/hosts entries for the public bridge or a private one
