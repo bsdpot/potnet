@@ -699,6 +699,21 @@ mod tests {
     }
 
     #[test]
+    fn system_conf_fromstr_012() {
+        let uut =
+            SystemConf::from_str("POT_NETWORK=fdf1:186e:49e6:76d8::/64 # pots internal network");
+        assert_eq!(uut.is_ok(), true);
+        let uut = uut.unwrap();
+        assert_eq!(uut.is_valid(), false);
+        assert_ne!(uut, SystemConf::default());
+        assert_eq!(uut.network.is_some(), true);
+        assert_eq!(
+            uut.network.unwrap(),
+            "fdf1:186e:49e6:76d8::/64".parse::<IpNet>().unwrap()
+        );
+    }
+
+    #[test]
     fn system_conf_fromstr_050() {
         let uut = SystemConf::from_str(
             "POT_ZFS_ROOT=zroot/pot\nPOT_FS_ROOT=/opt/pot\nPOT_EXTIF=em0\n
@@ -728,6 +743,47 @@ mod tests {
         assert_eq!(
             uut.dns_ip.unwrap(),
             "192.168.0.2".parse::<IpAddr>().unwrap()
+        );
+        assert_eq!(uut.zfs_root.is_some(), true);
+        assert_eq!(uut.zfs_root.unwrap(), "zroot/pot".to_string());
+        assert_eq!(uut.fs_root.is_some(), true);
+        assert_eq!(uut.fs_root.unwrap(), "/opt/pot".to_string());
+        assert_eq!(uut.ext_if.is_some(), true);
+        assert_eq!(uut.ext_if.unwrap(), "em0".to_string());
+        assert_eq!(uut.dns_name.is_some(), true);
+        assert_eq!(uut.dns_name.unwrap(), "bar_dns".to_string());
+    }
+
+    #[test]
+    fn system_conf_fromstr_051() {
+        let uut = SystemConf::from_str(
+            "POT_ZFS_ROOT=zroot/pot\nPOT_FS_ROOT=/opt/pot\nPOT_EXTIF=em0\n
+            POT_NETWORK=fdf1:186e:49e6:76d8::/64\nPOT_NETMASK=ffff:ffff:ffff:ffff::\nPOT_GATEWAY=fdf1:186e:49e6:76d8::1\n
+            POT_DNS_IP=fdf1:186e:49e6:76d8::2\nPOT_DNS_NAME=bar_dns",
+        );
+        assert_eq!(uut.is_ok(), true);
+        let uut = uut.unwrap();
+        assert_eq!(uut.is_valid(), true);
+        assert_ne!(uut, SystemConf::default());
+        assert_eq!(uut.network.is_some(), true);
+        assert_eq!(
+            uut.network.unwrap(),
+            "fdf1:186e:49e6:76d8::/64".parse::<IpNet>().unwrap()
+        );
+        assert_eq!(uut.netmask.is_some(), true);
+        assert_eq!(
+            uut.netmask.unwrap(),
+            "ffff:ffff:ffff:ffff::".parse::<IpAddr>().unwrap()
+        );
+        assert_eq!(uut.gateway.is_some(), true);
+        assert_eq!(
+            uut.gateway.unwrap(),
+            "fdf1:186e:49e6:76d8::1".parse::<IpAddr>().unwrap()
+        );
+        assert_eq!(uut.dns_ip.is_some(), true);
+        assert_eq!(
+            uut.dns_ip.unwrap(),
+            "fdf1:186e:49e6:76d8::2".parse::<IpAddr>().unwrap()
         );
         assert_eq!(uut.zfs_root.is_some(), true);
         assert_eq!(uut.zfs_root.unwrap(), "zroot/pot".to_string());
