@@ -5,8 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.4.3] 2020-03-08
 ### Fixed
-- potcpu: help messages were victims of copypasta
+- potcpu: help messages were victims of copypasta (#1)
 
 ## [0.4.2] 2019-10-25
 ### Added
