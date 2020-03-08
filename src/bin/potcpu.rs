@@ -18,10 +18,10 @@ struct Opt {
 
 #[derive(Debug, StructOpt)]
 enum Command {
-    /// Show the pot virtual network status
+    /// Show the current CPU allocation
     #[structopt(name = "show")]
     Show,
-    /// Show the pot virtual network status
+    /// Get a cpu allocation for a new jail
     #[structopt(name = "get-cpu")]
     GetCpu(GetCpuOpt),
     /// Propose a new allocation layout if needed
