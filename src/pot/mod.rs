@@ -488,8 +488,10 @@ pub fn get_pot_conf_list(conf: SystemConf) -> Vec<PotConf> {
                 "private-bridge" => NetType::PrivateBridge,
                 _ => continue,
             };
-            if pot_conf.network_type == NetType::Alias
-                || pot_conf.network_type == NetType::PublicBridge
+            if pot_conf.network_type == NetType::Alias {
+                continue;
+            }
+            if pot_conf.network_type == NetType::PublicBridge
                 || pot_conf.network_type == NetType::PrivateBridge
             {
                 if let Some(ip_addr) = temp_pot_conf.ip {

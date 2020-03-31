@@ -1,6 +1,6 @@
 [package]
 name = "potnet"
-version = "0.4.3"
+version = "0.4.4"
 authors = ["Luca Pizzamiglio <pizzamig@FreeBSD.org>"]
 edition = "2018"
 
