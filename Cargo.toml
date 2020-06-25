@@ -10,7 +10,7 @@ walkdir = "2"
 log = "0.4.0"
 failure = "0.1"
 ipnet = "2"
-itertools = "0.8"
+itertools = "0.9"
 
 [dependencies.structopt-flags]
 version = "^0.3.4"
