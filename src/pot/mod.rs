@@ -27,7 +27,7 @@ pub struct PotSystemConfig {
 }
 
 impl PotSystemConfig {
-    fn from_system() -> Result<Self> {
+    pub fn from_system() -> Result<Self> {
         let psc = system::PartialSystemConf::new();
         PotSystemConfig::try_from(psc)
     }
@@ -292,9 +292,9 @@ impl FromStr for BridgeConf {
         BridgeConf::optional_new(name, network, gateway).ok_or(error::PotError::BridgeConfError)
     }
 }
-pub fn get_bridges_path_list(conf: &SystemConf) -> Vec<PathBuf> {
+pub fn get_bridges_path_list(conf: &PotSystemConfig) -> Vec<PathBuf> {
     let mut result = Vec::new();
-    let fsroot = conf.fs_root.clone().unwrap();
+    let fsroot = conf.fs_root.clone();
     WalkDir::new(fsroot + "/bridges")
         .max_depth(1)
         .min_depth(1)
@@ -305,7 +305,7 @@ pub fn get_bridges_path_list(conf: &SystemConf) -> Vec<PathBuf> {
     result
 }
 
-pub fn get_bridges_list(conf: &SystemConf) -> Vec<BridgeConf> {
+pub fn get_bridges_list(conf: &PotSystemConfig) -> Vec<BridgeConf> {
     let path_list = get_bridges_path_list(conf);
     let mut result = Vec::new();
     for f in path_list {
@@ -360,9 +360,9 @@ impl Default for PotConf {
     }
 }
 
-fn get_pot_path_list(conf: &SystemConf) -> Vec<PathBuf> {
+fn get_pot_path_list(conf: &PotSystemConfig) -> Vec<PathBuf> {
     let mut result = Vec::new();
-    let fsroot = conf.fs_root.clone().unwrap();
+    let fsroot = conf.fs_root.clone();
     WalkDir::new(fsroot + "/jails")
         .max_depth(1)
         .min_depth(1)
@@ -373,7 +373,7 @@ fn get_pot_path_list(conf: &SystemConf) -> Vec<PathBuf> {
     result
 }
 
-pub fn get_pot_list(conf: &SystemConf) -> Vec<String> {
+pub fn get_pot_list(conf: &PotSystemConfig) -> Vec<String> {
     let mut result = Vec::new();
     for pot_dir in get_pot_path_list(conf) {
         if let Some(pot_name) = pot_dir.file_name() {
@@ -400,7 +400,7 @@ fn is_pot_running(pot_name: &str) -> Result<bool> {
     }
 }
 
-pub fn get_running_pot_list(conf: &SystemConf) -> Vec<String> {
+pub fn get_running_pot_list(conf: &PotSystemConfig) -> Vec<String> {
     let mut result = Vec::new();
     for pot in get_pot_list(conf) {
         if let Ok(status) = is_pot_running(&pot) {
@@ -412,13 +412,10 @@ pub fn get_running_pot_list(conf: &SystemConf) -> Vec<String> {
     result
 }
 
-pub fn get_pot_conf_list(conf: SystemConf) -> Vec<PotConf> {
+pub fn get_pot_conf_list(conf: PotSystemConfig) -> Vec<PotConf> {
     let mut v: Vec<PotConf> = Vec::new();
-    if !conf.is_valid() {
-        return v;
-    }
 
-    let fsroot = conf.fs_root.clone().unwrap();
+    let fsroot = conf.fs_root.clone();
     let pdir = fsroot + "/jails/";
     for mut dir_path in get_pot_path_list(&conf) {
         let mut pot_conf = PotConf::default();
