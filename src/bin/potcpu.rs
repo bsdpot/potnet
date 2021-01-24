@@ -1,7 +1,7 @@
-use failure::{Error, Fail};
+use anyhow::{anyhow, Result};
 use itertools::Itertools;
-use log::{error, info, trace, warn};
-use potnet::pot::{get_running_pot_list, SystemConf};
+use log::{info, trace, warn};
+use potnet::pot::{get_running_pot_list, PotSystemConfig};
 use std::collections::HashMap;
 use std::process::{Command as PCommand, Stdio};
 use structopt::StructOpt;
@@ -36,50 +36,27 @@ struct GetCpuOpt {
     cpu_amount: u32,
 }
 
-#[derive(Debug, Fail)]
-enum PotCpuError {
-    #[fail(display = "no stdout from {}", command)]
-    NoStdout { command: String },
-    #[fail(display = "{}'s stdout is malformed", command)]
-    StdoutMalformed { command: String },
-    #[fail(display = "found not UTF-8 character in the {} output", command)]
-    Utf8 { command: String },
-    #[fail(display = "command {} failed (no success)", command)]
-    NoSuccess { command: String },
-    #[fail(display = "failed to spawn {} command", command)]
-    Spawn { command: String },
-}
-
 type Allocation = Vec<u32>;
 type AllocationRef = [u32];
 
-fn allocation_from_utf8(v: &[u8]) -> Result<Allocation, PotCpuError> {
-    if let Ok(output_string) = std::str::from_utf8(v) {
-        if let Some(first_line) = output_string.lines().nth(0) {
-            if let Some(mask) = first_line.split(':').nth(1) {
-                let result: Vec<u32> = mask
-                    .split(',')
-                    .map(str::trim)
-                    .map(str::parse)
-                    .filter(std::result::Result::is_ok)
-                    .map(std::result::Result::unwrap)
-                    .collect();
-                Ok(result)
-            } else {
-                Err(PotCpuError::StdoutMalformed {
-                    command: "cpuset".to_string(),
-                })
-            }
-        } else {
-            Err(PotCpuError::NoStdout {
-                command: "cpuset".to_string(),
-            })
-        }
-    } else {
-        Err(PotCpuError::Utf8 {
-            command: "cpuset".to_string(),
-        })
-    }
+fn allocation_from_utf8(v: &[u8]) -> Result<Allocation> {
+    let output_string = std::str::from_utf8(v)?;
+    let first_line = output_string
+        .lines()
+        .next()
+        .ok_or(anyhow::anyhow!("cpuset: no stdout"))?;
+    let mask = first_line
+        .split(':')
+        .nth(1)
+        .ok_or(anyhow!("cpuset: malformed stdout"))?;
+    let result: Vec<u32> = mask
+        .split(',')
+        .map(str::trim)
+        .map(str::parse)
+        .filter(std::result::Result::is_ok)
+        .map(std::result::Result::unwrap)
+        .collect();
+    Ok(result)
 }
 
 fn allocation_to_string(allocation: &AllocationRef, ncpu: u32) -> String {
@@ -95,40 +72,21 @@ fn allocation_to_string(allocation: &AllocationRef, ncpu: u32) -> String {
     }
 }
 
-fn get_ncpu() -> Result<u32, PotCpuError> {
+fn get_ncpu() -> Result<u32> {
     let output = PCommand::new("/sbin/sysctl")
         .arg("-n")
         .arg("hw.ncpu")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .output();
-    if let Ok(output) = output {
-        if !output.status.success() {
-            Err(PotCpuError::NoSuccess {
-                command: "sysctl".to_string(),
-            })
-        } else if let Ok(output_string) = std::str::from_utf8(&output.stdout) {
-            if let Ok(ncpu) = output_string.trim().parse::<u32>() {
-                Ok(ncpu)
-            } else {
-                Err(PotCpuError::StdoutMalformed {
-                    command: "sysctl".to_string(),
-                })
-            }
-        } else {
-            Err(PotCpuError::Utf8 {
-                command: "sysctl".to_string(),
-            })
-        }
-    } else {
-        Err(PotCpuError::Spawn {
-            command: "sysctl".to_string(),
-        })
-    }
+        .output()?;
+
+    let output_string = std::str::from_utf8(&output.stdout)?;
+    let ncpu: u32 = output_string.trim().parse()?;
+    Ok(ncpu)
 }
 
-fn get_cpusets(conf: &SystemConf) -> Result<HashMap<String, Allocation>, PotCpuError> {
+fn get_cpusets(conf: &PotSystemConfig) -> Result<HashMap<String, Allocation>> {
     let mut result = HashMap::new();
     for pot in get_running_pot_list(conf) {
         let output = PCommand::new("/usr/bin/cpuset")
@@ -138,26 +96,20 @@ fn get_cpusets(conf: &SystemConf) -> Result<HashMap<String, Allocation>, PotCpuE
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
-            .output();
-        if let Ok(output) = output {
-            if !output.status.success() {
-                warn!("failed to get cpuset information for pot {}", pot);
-                continue;
-            }
-            let allocation = allocation_from_utf8(&output.stdout)?;
-            result.insert(pot, allocation);
-        } else {
-            return Err(PotCpuError::Spawn {
-                command: "cpuset".to_string(),
-            });
+            .output()?;
+        if !output.status.success() {
+            warn!("failed to get cpuset information for pot {}", pot);
+            continue;
         }
+        let allocation = allocation_from_utf8(&output.stdout)?;
+        result.insert(pot, allocation);
     }
     Ok(result)
 }
 
 fn get_potcpuconstraints(
     allocations: &HashMap<String, Allocation>,
-) -> Result<HashMap<String, u32>, PotCpuError> {
+) -> Result<HashMap<String, u32>> {
     let mut result = HashMap::new();
     let ncpu = get_ncpu()?;
     for (pot_name, allocation) in allocations {
@@ -169,7 +121,7 @@ fn get_potcpuconstraints(
     Ok(result)
 }
 
-fn show(opt: &Opt, conf: &SystemConf) -> Result<(), Error> {
+fn show(opt: &Opt, conf: &PotSystemConfig) -> Result<()> {
     let ncpu = get_ncpu()?;
     let pot_cpusets = get_cpusets(conf)?;
     let pot_constraints = get_potcpuconstraints(&pot_cpusets)?;
@@ -194,7 +146,7 @@ fn show(opt: &Opt, conf: &SystemConf) -> Result<(), Error> {
     Ok(())
 }
 
-fn get_cpu_allocation(conf: &SystemConf) -> Result<HashMap<u32, u32>, PotCpuError> {
+fn get_cpu_allocation(conf: &PotSystemConfig) -> Result<HashMap<u32, u32>> {
     let pot_cpusets = get_cpusets(conf)?;
     let ncpu = get_ncpu()?;
     let mut result: HashMap<u32, u32> = HashMap::new();
@@ -210,7 +162,7 @@ fn get_cpu_allocation(conf: &SystemConf) -> Result<HashMap<u32, u32>, PotCpuErro
     Ok(result)
 }
 
-fn get_cpu(_opt: &Opt, conf: &SystemConf, cpu_amount: u32) -> Result<(), Error> {
+fn get_cpu(_opt: &Opt, conf: &PotSystemConfig, cpu_amount: u32) -> Result<()> {
     let ncpu = get_ncpu()?;
     if ncpu <= cpu_amount {
         info!("Not enough CPU in the system to provide a meaningful allocation");
@@ -230,7 +182,7 @@ fn get_cpu(_opt: &Opt, conf: &SystemConf, cpu_amount: u32) -> Result<(), Error> 
     Ok(())
 }
 
-fn rebalance(_opt: &Opt, conf: &SystemConf) -> Result<(), Error> {
+fn rebalance(_opt: &Opt, conf: &PotSystemConfig) -> Result<()> {
     let cpu_counters = get_cpu_allocation(conf)?;
     let min = cpu_counters
         .iter()
@@ -274,17 +226,12 @@ fn rebalance(_opt: &Opt, conf: &SystemConf) -> Result<(), Error> {
     }
     Ok(())
 }
-fn main() -> Result<(), Error> {
+fn main() -> Result<()> {
     let opt = Opt::from_args();
     opt.verbose.set_log_level();
     trace!("potcpu start");
 
-    let conf = SystemConf::new();
-    if !conf.is_valid() {
-        error!("No valid configuration found");
-        println!("No valid configuration found");
-        return Ok(());
-    }
+    let conf = PotSystemConfig::from_system()?;
     match opt.subcommand {
         Command::Show => show(&opt, &conf)?,
         Command::GetCpu(cmd_opt) => get_cpu(&opt, &conf, cmd_opt.cpu_amount)?,

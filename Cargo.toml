@@ -8,9 +8,10 @@ edition = "2018"
 structopt = {version = "0.3", default-features = false }
 walkdir = "2"
 log = "0.4"
-failure = "0.1"
 ipnet = "2"
 itertools = "0.9"
+thiserror = "1"
+anyhow = "1"
 
 [dependencies.structopt-flags]
 version = "^0.3"

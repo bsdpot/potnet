@@ -1,7 +1,7 @@
-use failure::{format_err, Error};
+use anyhow::{bail, Result};
 use ipnet::IpNet;
 use log::{debug, error, info, trace};
-use potnet::pot::{get_bridges_list, get_pot_conf_list, BridgeConf, NetType, SystemConf};
+use potnet::pot::{get_bridges_list, get_pot_conf_list, BridgeConf, NetType, PotSystemConfig};
 use std::collections::BTreeMap;
 use std::net::IpAddr;
 use std::net::IpAddr::{V4, V6};
@@ -77,11 +77,11 @@ struct NewNetOpt {
     host_number: u16,
 }
 
-fn show(opt: &Opt, conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
+fn show(opt: &Opt, conf: &PotSystemConfig, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
     println!("Network topology:");
-    println!("\tnetwork : {}", conf.network.unwrap().trunc());
-    println!("\tmin addr: {}", conf.network.unwrap().network());
-    println!("\tmax addr: {}", conf.network.unwrap().broadcast());
+    println!("\tnetwork : {}", conf.network.trunc());
+    println!("\tmin addr: {}", conf.network.network());
+    println!("\tmax addr: {}", conf.network.broadcast());
     println!("\nAddresses already taken:");
     for (ip, opt_name) in ip_db.iter() {
         println!(
@@ -98,7 +98,7 @@ fn show(opt: &Opt, conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<String
     }
 }
 
-fn show_bridge(_opt: &Opt, conf: &SystemConf, bridge_name: &str) {
+fn show_bridge(_opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) {
     let bridges_list = get_bridges_list(conf);
     if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
         info!("bridge {} found", bridge.name);
@@ -119,8 +119,8 @@ fn show_bridge(_opt: &Opt, conf: &SystemConf, bridge_name: &str) {
     }
 }
 
-fn get(opt: &Opt, conf: &SystemConf, ip_db: &BTreeMap<IpAddr, Option<String>>) {
-    for addr in conf.network.unwrap().hosts() {
+fn get(opt: &Opt, conf: &PotSystemConfig, ip_db: &BTreeMap<IpAddr, Option<String>>) {
+    for addr in conf.network.hosts() {
         if !ip_db.contains_key(&addr) {
             if opt.verbose.get_level_filter() > log::LevelFilter::Warn {
                 println!("{} available", addr);
@@ -172,10 +172,10 @@ fn is_subnet_usable(subnet: IpNet, ip_db: &BTreeMap<IpAddr, Option<String>>) -> 
     true
 }
 
-fn new_net(host_number: u16, conf: &SystemConf, ip_db: &BTreeMap<IpAddr, Option<String>>) {
-    if let Some(prefix_length) = get_prefix_length(host_number, &conf.gateway.unwrap()) {
+fn new_net(host_number: u16, conf: &PotSystemConfig, ip_db: &BTreeMap<IpAddr, Option<String>>) {
+    if let Some(prefix_length) = get_prefix_length(host_number, &conf.gateway) {
         info!("Subnet prefix length {}", prefix_length);
-        if let Ok(subnets) = conf.network.unwrap().subnets(prefix_length) {
+        if let Ok(subnets) = conf.network.subnets(prefix_length) {
             //info!("{} subnets to evaluate", subnets.count());
             for s in subnets {
                 if is_subnet_usable(s, ip_db) {
@@ -190,7 +190,7 @@ fn new_net(host_number: u16, conf: &SystemConf, ip_db: &BTreeMap<IpAddr, Option<
     }
 }
 
-fn get_next_from_bridge(opt: &Opt, conf: &SystemConf, bridge_name: &str) {
+fn get_next_from_bridge(opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) {
     let bridges_list = get_bridges_list(conf);
     if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
         info!("bridge {} found", bridge.name);
@@ -211,7 +211,7 @@ fn get_next_from_bridge(opt: &Opt, conf: &SystemConf, bridge_name: &str) {
     }
 }
 
-fn get_hosts_from_bridge(_opt: &Opt, conf: &SystemConf, bridge_name: &str) {
+fn get_hosts_from_bridge(_opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) {
     let bridges_list = get_bridges_list(conf);
     if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
         info!("bridge {} found", bridge.name);
@@ -230,7 +230,7 @@ fn get_hosts_from_bridge(_opt: &Opt, conf: &SystemConf, bridge_name: &str) {
     }
 }
 
-fn get_hosts_for_public_bridge(_opt: &Opt, conf: &SystemConf) {
+fn get_hosts_for_public_bridge(_opt: &Opt, conf: &PotSystemConfig) {
     let mut ip_db = BTreeMap::new();
     for v in &get_pot_conf_list(conf.clone()) {
         if v.network_type == NetType::PublicBridge {
@@ -242,7 +242,7 @@ fn get_hosts_for_public_bridge(_opt: &Opt, conf: &SystemConf) {
     }
 }
 
-fn validate_with_bridge(conf: &SystemConf, bridge_name: &str, ip: IpAddr) -> Result<(), Error> {
+fn validate_with_bridge(conf: &PotSystemConfig, bridge_name: &str, ip: IpAddr) -> Result<()> {
     let bridges_list = get_bridges_list(conf);
     if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
         info!("bridge {} found", bridge.name);
@@ -251,36 +251,36 @@ fn validate_with_bridge(conf: &SystemConf, bridge_name: &str, ip: IpAddr) -> Res
         // the ip address is in the bridge network
         if !bridge.network.contains(&ip) {
             error!("ip {} not in the bridge network {}", ip, bridge.network);
-            return Err(format_err!("Ip outside the bridge network"));
+            bail!("Ip outside the bridge network");
         }
         // the ip is already in use
         if ip_db.contains_key(&ip) {
             error!("ip {} already in use", ip);
-            return Err(format_err!("Ip already used"));
+            bail!("Ip already used");
         }
     } else {
-        return Err(format_err!("bridge {} not found", bridge_name));
+        bail!("bridge {} not found", bridge_name);
     }
     Ok(())
 }
 
 fn validate(
     ip: IpAddr,
-    conf: &SystemConf,
+    conf: &PotSystemConfig,
     ip_db: &BTreeMap<IpAddr, Option<String>>,
-) -> Result<(), Error> {
+) -> Result<()> {
     if ip_db.contains_key(&ip) {
-        return Err(format_err!("Address already in use"));
+        bail!("Address already in use");
     }
-    if !conf.network.unwrap().contains(&ip) {
-        return Err(format_err!("Address outside the network"));
+    if !conf.network.contains(&ip) {
+        bail!("Address outside the network");
     }
     Ok(())
 }
 
 fn init_bridge_ipdb(
     bridge: &BridgeConf,
-    conf: &SystemConf,
+    conf: &PotSystemConfig,
     ip_db: &mut BTreeMap<IpAddr, Option<String>>,
 ) {
     info!("Evaluating bridge {:?}", bridge);
@@ -305,18 +305,15 @@ fn init_bridge_ipdb(
     }
 }
 
-fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
+fn init_ipdb(conf: &PotSystemConfig, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
     info!("Insert network {:?}", conf.network);
-    ip_db.insert(conf.network.unwrap().network(), None);
+    ip_db.insert(conf.network.network(), None);
     info!("Insert broadcast {:?}", conf.network);
-    ip_db.insert(conf.network.unwrap().broadcast(), None);
+    ip_db.insert(conf.network.broadcast(), None);
     info!("Insert gateway {:?}", conf.gateway);
-    ip_db.insert(conf.gateway.unwrap(), Some("default gateway".to_string()));
+    ip_db.insert(conf.gateway, Some("default gateway".to_string()));
     info!("Insert dns {:?}", conf.dns_ip);
-    ip_db.insert(
-        conf.dns_ip.unwrap(),
-        Some(conf.dns_name.as_ref().unwrap().to_string()),
-    );
+    ip_db.insert(conf.dns_ip, Some(conf.dns_name.clone()));
     for v in &get_pot_conf_list(conf.clone()) {
         if v.network_type == NetType::PublicBridge || v.network_type == NetType::PrivateBridge {
             info!("Insert pot {:?}", v.ip_addr.unwrap());
@@ -348,17 +345,12 @@ fn init_ipdb(conf: &SystemConf, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
     }
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<()> {
     let opt = Opt::from_args();
     opt.verbose.set_log_level();
     trace!("potnet start");
 
-    let conf = SystemConf::new();
-    if !conf.is_valid() {
-        error!("No valid configuration found");
-        println!("No valid configuration found");
-        return Ok(());
-    }
+    let conf = PotSystemConfig::from_system()?;
     let mut ip_db = BTreeMap::new();
     init_ipdb(&conf, &mut ip_db);
     let opt_clone = opt.clone();
@@ -403,30 +395,25 @@ fn main() -> Result<(), Error> {
             debug!("{} is a valid IP address", x.ip.host_addr);
         }
         Command::ConfigCheck => {
-            if !conf.network.unwrap().contains(&conf.gateway.unwrap()) {
+            if !conf.network.contains(&conf.gateway) {
                 error!(
                     "gateway IP ({}) outside the network range ({})",
-                    conf.gateway.unwrap(),
-                    conf.network.unwrap()
+                    conf.gateway, conf.network
                 );
             }
-            if !conf.network.unwrap().contains(&conf.dns_ip.unwrap()) {
+            if !conf.network.contains(&conf.dns_ip) {
                 error!(
                     "DNS IP ({}) outside the network range ({})",
-                    conf.dns_ip.unwrap(),
-                    conf.network.unwrap()
+                    conf.dns_ip, conf.network
                 );
             }
-            if conf.network.unwrap().netmask() != conf.netmask.unwrap() {
+            if conf.network.netmask() != conf.netmask {
                 error!(
                     "netmask ({}) different from the network one ({})",
-                    conf.netmask.unwrap(),
-                    conf.network.unwrap()
+                    conf.netmask, conf.network
                 );
             }
-            if !conf.network.unwrap().contains(&conf.gateway.unwrap())
-                || conf.network.unwrap().netmask() != conf.netmask.unwrap()
-            {
+            if !conf.network.contains(&conf.gateway) || conf.network.netmask() != conf.netmask {
                 std::process::exit(1);
             }
         }
