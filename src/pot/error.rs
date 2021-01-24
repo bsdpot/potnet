@@ -2,6 +2,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PotError {
+    #[error("System configuration incomplete")]
+    IncompleteSystemConf,
     #[error("Command {0} not found")]
     WhichError(String),
     #[error("Invalid UTF-8 string")]

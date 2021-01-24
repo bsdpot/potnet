@@ -2,6 +2,7 @@ pub mod error;
 mod system;
 
 use ipnet::IpNet;
+use std::convert::TryFrom;
 use std::default::Default;
 use std::fs::File;
 use std::io::prelude::*;
@@ -13,18 +14,6 @@ use walkdir::WalkDir;
 
 pub type Result<T> = ::std::result::Result<T, error::PotError>;
 
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct SystemConf {
-    zfs_root: Option<String>,
-    pub fs_root: Option<String>,
-    pub network: Option<IpNet>,
-    pub netmask: Option<IpAddr>,
-    pub gateway: Option<IpAddr>,
-    ext_if: Option<String>,
-    pub dns_name: Option<String>,
-    pub dns_ip: Option<IpAddr>,
-}
-
 #[derive(Debug, Clone)]
 pub struct PotSystemConfig {
     pub zfs_root: String,
@@ -35,6 +24,45 @@ pub struct PotSystemConfig {
     pub ext_if: String,
     pub dns_name: String,
     pub dns_ip: IpAddr,
+}
+
+impl PotSystemConfig {
+    fn from_system() -> Result<Self> {
+        let psc = system::PartialSystemConf::new();
+        PotSystemConfig::try_from(psc)
+    }
+}
+
+impl TryFrom<system::PartialSystemConf> for PotSystemConfig {
+    type Error = error::PotError;
+
+    fn try_from(psc: system::PartialSystemConf) -> std::result::Result<Self, Self::Error> {
+        if psc.is_valid() {
+            Ok(PotSystemConfig {
+                zfs_root: psc.zfs_root.unwrap(),
+                fs_root: psc.fs_root.unwrap(),
+                network: psc.network.unwrap(),
+                netmask: psc.netmask.unwrap(),
+                gateway: psc.gateway.unwrap(),
+                ext_if: psc.ext_if.unwrap(),
+                dns_name: psc.dns_name.unwrap(),
+                dns_ip: psc.dns_ip.unwrap(),
+            })
+        } else {
+            Err(error::PotError::IncompleteSystemConf)
+        }
+    }
+}
+#[derive(Default, Debug, Clone, PartialEq)]
+pub struct SystemConf {
+    zfs_root: Option<String>,
+    pub fs_root: Option<String>,
+    pub network: Option<IpNet>,
+    pub netmask: Option<IpAddr>,
+    pub gateway: Option<IpAddr>,
+    ext_if: Option<String>,
+    pub dns_name: Option<String>,
+    pub dns_ip: Option<IpAddr>,
 }
 
 impl FromStr for SystemConf {

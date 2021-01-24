@@ -2,24 +2,21 @@ use crate::pot::error::PotError;
 use crate::pot::Result;
 use ipnet::IpNet;
 use std::default::Default;
-use std::fs::File;
-use std::io::prelude::*;
 use std::net::IpAddr;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::str::FromStr;
-use walkdir::WalkDir;
 
 #[derive(Default, Debug, Clone, PartialEq)]
-struct PartialSystemConf {
-    zfs_root: Option<String>,
-    fs_root: Option<String>,
-    network: Option<IpNet>,
-    netmask: Option<IpAddr>,
-    gateway: Option<IpAddr>,
-    ext_if: Option<String>,
-    dns_name: Option<String>,
-    dns_ip: Option<IpAddr>,
+pub(crate) struct PartialSystemConf {
+    pub(crate) zfs_root: Option<String>,
+    pub(crate) fs_root: Option<String>,
+    pub(crate) network: Option<IpNet>,
+    pub(crate) netmask: Option<IpAddr>,
+    pub(crate) gateway: Option<IpAddr>,
+    pub(crate) ext_if: Option<String>,
+    pub(crate) dns_name: Option<String>,
+    pub(crate) dns_ip: Option<IpAddr>,
 }
 
 impl PartialSystemConf {
