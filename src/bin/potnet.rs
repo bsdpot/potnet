@@ -1,4 +1,4 @@
-use failure::{format_err, Error};
+use anyhow::{bail, Result};
 use ipnet::IpNet;
 use log::{debug, error, info, trace};
 use potnet::pot::{get_bridges_list, get_pot_conf_list, BridgeConf, NetType, PotSystemConfig};
@@ -242,11 +242,7 @@ fn get_hosts_for_public_bridge(_opt: &Opt, conf: &PotSystemConfig) {
     }
 }
 
-fn validate_with_bridge(
-    conf: &PotSystemConfig,
-    bridge_name: &str,
-    ip: IpAddr,
-) -> Result<(), Error> {
+fn validate_with_bridge(conf: &PotSystemConfig, bridge_name: &str, ip: IpAddr) -> Result<()> {
     let bridges_list = get_bridges_list(conf);
     if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
         info!("bridge {} found", bridge.name);
@@ -255,15 +251,15 @@ fn validate_with_bridge(
         // the ip address is in the bridge network
         if !bridge.network.contains(&ip) {
             error!("ip {} not in the bridge network {}", ip, bridge.network);
-            return Err(format_err!("Ip outside the bridge network"));
+            bail!("Ip outside the bridge network");
         }
         // the ip is already in use
         if ip_db.contains_key(&ip) {
             error!("ip {} already in use", ip);
-            return Err(format_err!("Ip already used"));
+            bail!("Ip already used");
         }
     } else {
-        return Err(format_err!("bridge {} not found", bridge_name));
+        bail!("bridge {} not found", bridge_name);
     }
     Ok(())
 }
@@ -272,12 +268,12 @@ fn validate(
     ip: IpAddr,
     conf: &PotSystemConfig,
     ip_db: &BTreeMap<IpAddr, Option<String>>,
-) -> Result<(), Error> {
+) -> Result<()> {
     if ip_db.contains_key(&ip) {
-        return Err(format_err!("Address already in use"));
+        bail!("Address already in use");
     }
     if !conf.network.contains(&ip) {
-        return Err(format_err!("Address outside the network"));
+        bail!("Address outside the network");
     }
     Ok(())
 }
@@ -349,7 +345,7 @@ fn init_ipdb(conf: &PotSystemConfig, ip_db: &mut BTreeMap<IpAddr, Option<String>
     }
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<()> {
     let opt = Opt::from_args();
     opt.verbose.set_log_level();
     trace!("potnet start");
