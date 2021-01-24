@@ -147,15 +147,17 @@ pub fn get_pot_conf_list(conf: PotSystemConfig) -> Vec<PotConf> {
     let fsroot = conf.fs_root.clone();
     let pdir = fsroot + "/jails/";
     for mut dir_path in get_pot_path_list(&conf) {
-        let mut pot_conf = PotConf::default();
-        pot_conf.name = dir_path
-            .clone()
-            .strip_prefix(&pdir)
-            .ok()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
+        let mut pot_conf = PotConf {
+            name: dir_path
+                .clone()
+                .strip_prefix(&pdir)
+                .ok()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string(),
+            ..Default::default()
+        };
         dir_path.push("conf");
         dir_path.push("pot.conf");
         let mut conf_file = match File::open(dir_path.as_path()) {

@@ -44,11 +44,11 @@ fn allocation_from_utf8(v: &[u8]) -> Result<Allocation> {
     let first_line = output_string
         .lines()
         .next()
-        .ok_or(anyhow::anyhow!("cpuset: no stdout"))?;
+        .ok_or_else(|| anyhow!("cpuset: no stdout"))?;
     let mask = first_line
         .split(':')
         .nth(1)
-        .ok_or(anyhow!("cpuset: malformed stdout"))?;
+        .ok_or_else(|| anyhow!("cpuset: malformed stdout"))?;
     let result: Vec<u32> = mask
         .split(',')
         .map(str::trim)

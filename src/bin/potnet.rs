@@ -175,7 +175,7 @@ fn new_net(host_number: u16, conf: &PotSystemConfig, ip_db: &BTreeMap<IpAddr, Op
             for s in subnets {
                 if is_subnet_usable(s, ip_db) {
                     println!("net={}", s);
-                    println!("gateway={}", s.hosts().nth(0).unwrap());
+                    println!("gateway={}", s.hosts().next().unwrap());
                     break;
                 } else {
                     debug!("{} not usable", s);
