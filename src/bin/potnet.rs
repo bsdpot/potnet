@@ -1,7 +1,8 @@
 use anyhow::{bail, Result};
 use ipnet::IpNet;
 use log::{debug, error, info, trace};
-use potnet::pot::{get_bridges_list, get_pot_conf_list, BridgeConf, NetType, PotSystemConfig};
+use potnet::pot::bridge::{get_bridges_list, BridgeConf};
+use potnet::pot::{get_pot_conf_list, NetType, PotSystemConfig};
 use std::collections::BTreeMap;
 use std::net::IpAddr;
 use std::net::IpAddr::{V4, V6};
@@ -84,22 +85,15 @@ fn show(opt: &Opt, conf: &PotSystemConfig, ip_db: &mut BTreeMap<IpAddr, Option<S
     println!("\tmax addr: {}", conf.network.broadcast());
     println!("\nAddresses already taken:");
     for (ip, opt_name) in ip_db.iter() {
-        println!(
-            "\t{}\t{}",
-            ip,
-            match *opt_name {
-                Some(ref s) => s,
-                None => "",
-            }
-        );
+        println!("\t{}\t{}", ip, opt_name.as_ref().unwrap_or(&"".to_string()));
     }
     if opt.verbose.get_level_filter() > log::LevelFilter::Warn {
         println!("\nDebug information\n{:#?}", conf);
     }
 }
 
-fn show_bridge(_opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) {
-    let bridges_list = get_bridges_list(conf);
+fn show_bridge(_opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) -> Result<()> {
+    let bridges_list = get_bridges_list(conf)?;
     if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
         info!("bridge {} found", bridge.name);
         let mut ip_db = BTreeMap::new();
@@ -117,6 +111,7 @@ fn show_bridge(_opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) {
     } else {
         error!("bridge {} not found", bridge_name);
     }
+    Ok(())
 }
 
 fn get(opt: &Opt, conf: &PotSystemConfig, ip_db: &BTreeMap<IpAddr, Option<String>>) {
@@ -190,8 +185,8 @@ fn new_net(host_number: u16, conf: &PotSystemConfig, ip_db: &BTreeMap<IpAddr, Op
     }
 }
 
-fn get_next_from_bridge(opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) {
-    let bridges_list = get_bridges_list(conf);
+fn get_next_from_bridge(opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) -> Result<()> {
+    let bridges_list = get_bridges_list(conf)?;
     if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
         info!("bridge {} found", bridge.name);
         let mut ip_db = BTreeMap::new();
@@ -209,10 +204,11 @@ fn get_next_from_bridge(opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) {
     } else {
         error!("bridge {} not found", bridge_name);
     }
+    Ok(())
 }
 
-fn get_hosts_from_bridge(_opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) {
-    let bridges_list = get_bridges_list(conf);
+fn get_hosts_from_bridge(_opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) -> Result<()> {
+    let bridges_list = get_bridges_list(conf)?;
     if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
         info!("bridge {} found", bridge.name);
         let mut ip_db = BTreeMap::new();
@@ -228,6 +224,7 @@ fn get_hosts_from_bridge(_opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) 
             println!("{} {}", ip, hostname);
         }
     }
+    Ok(())
 }
 
 fn get_hosts_for_public_bridge(_opt: &Opt, conf: &PotSystemConfig) {
@@ -243,7 +240,7 @@ fn get_hosts_for_public_bridge(_opt: &Opt, conf: &PotSystemConfig) {
 }
 
 fn validate_with_bridge(conf: &PotSystemConfig, bridge_name: &str, ip: IpAddr) -> Result<()> {
-    let bridges_list = get_bridges_list(conf);
+    let bridges_list = get_bridges_list(conf)?;
     if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
         info!("bridge {} found", bridge.name);
         let mut ip_db = BTreeMap::new();
@@ -305,7 +302,7 @@ fn init_bridge_ipdb(
     }
 }
 
-fn init_ipdb(conf: &PotSystemConfig, ip_db: &mut BTreeMap<IpAddr, Option<String>>) {
+fn init_ipdb(conf: &PotSystemConfig, ip_db: &mut BTreeMap<IpAddr, Option<String>>) -> Result<()> {
     info!("Insert network {:?}", conf.network);
     ip_db.insert(conf.network.network(), None);
     info!("Insert broadcast {:?}", conf.network);
@@ -320,7 +317,7 @@ fn init_ipdb(conf: &PotSystemConfig, ip_db: &mut BTreeMap<IpAddr, Option<String>
             ip_db.insert(v.ip_addr.unwrap(), Some(v.name.clone()));
         }
     }
-    for b in &get_bridges_list(conf) {
+    for b in &get_bridges_list(conf)? {
         info!("Evaluating bridge {:?}", b);
         // add the network address
         let mut description = String::from(b.name.as_str());
@@ -343,6 +340,7 @@ fn init_ipdb(conf: &PotSystemConfig, ip_db: &mut BTreeMap<IpAddr, Option<String>
                 .or_insert_with(|| Some(description.clone()));
         }
     }
+    Ok(())
 }
 
 fn main() -> Result<()> {
@@ -352,12 +350,12 @@ fn main() -> Result<()> {
 
     let conf = PotSystemConfig::from_system()?;
     let mut ip_db = BTreeMap::new();
-    init_ipdb(&conf, &mut ip_db);
+    init_ipdb(&conf, &mut ip_db)?;
     let opt_clone = opt.clone();
     match opt.subcommand {
         Command::Show(bopt) => {
             if let Some(bridge_name) = bopt.bridge_name {
-                show_bridge(&opt_clone, &conf, &bridge_name);
+                show_bridge(&opt_clone, &conf, &bridge_name)?;
             } else {
                 show(&opt_clone, &conf, &mut ip_db);
             }
@@ -365,7 +363,7 @@ fn main() -> Result<()> {
         Command::Next(nopt) => {
             if let Some(bridge_name) = nopt.bridge_name {
                 debug!("get an ip for the bridge {}", bridge_name);
-                get_next_from_bridge(&opt_clone, &conf, &bridge_name);
+                get_next_from_bridge(&opt_clone, &conf, &bridge_name)?;
             } else {
                 get(&opt_clone, &conf, &ip_db);
             }
@@ -427,7 +425,7 @@ fn main() -> Result<()> {
         Command::EtcHosts(ehopt) => {
             if let Some(bridge_name) = ehopt.bridge_name {
                 debug!("get an ip for the bridge {}", bridge_name);
-                get_hosts_from_bridge(&opt_clone, &conf, &bridge_name);
+                get_hosts_from_bridge(&opt_clone, &conf, &bridge_name)?;
             } else {
                 get_hosts_for_public_bridge(&opt_clone, &conf);
             }
