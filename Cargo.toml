@@ -7,14 +7,15 @@ edition = "2018"
 [dependencies]
 structopt = {version = "0.3", default-features = false }
 walkdir = "2"
-log = "0.4.0"
+log = "0.4"
 failure = "0.1"
 ipnet = "2"
 itertools = "0.9"
 
 [dependencies.structopt-flags]
-version = "^0.3.4"
+version = "^0.3"
 features = ["simplelog"]
+
 [profile.release]
 lto = true
 
