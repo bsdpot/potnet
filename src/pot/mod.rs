@@ -1,6 +1,7 @@
 pub mod bridge;
 pub mod error;
 mod system;
+pub(crate) mod util;
 
 use ipnet::IpNet;
 use std::convert::TryFrom;

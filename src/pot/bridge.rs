@@ -77,26 +77,10 @@ struct PartialBridgeConf {
     gateway: Option<IpAddr>,
 }
 
-fn get_value<T>(line: &str, key: &str) -> Option<T>
-where
-    T: FromStr,
-{
-    if line.starts_with(key) {
-        match line.split('=').nth(1) {
-            Some(value) => match value.split(' ').next() {
-                Some(value) => value.parse().ok(),
-                None => None,
-            },
-            None => None,
-        }
-    } else {
-        None
-    }
-}
-
 impl FromStr for PartialBridgeConf {
     type Err = std::convert::Infallible;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        use crate::pot::util::get_value;
         let lines: Vec<String> = s
             .to_string()
             .lines()
@@ -106,13 +90,13 @@ impl FromStr for PartialBridgeConf {
         let mut result = PartialBridgeConf::default();
         for linestr in &lines {
             if linestr.starts_with("name=") {
-                result.name = get_value(linestr, "name=");
+                result.name = get_value(linestr);
             }
             if linestr.starts_with("net=") {
-                result.network = get_value(linestr, "net=");
+                result.network = get_value(linestr);
             }
             if linestr.starts_with("gateway=") {
-                result.gateway = get_value(linestr, "gateway=");
+                result.gateway = get_value(linestr);
             }
         }
         Ok(result)
