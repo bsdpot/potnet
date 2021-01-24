@@ -1,7 +1,7 @@
 use failure::{Error, Fail};
 use itertools::Itertools;
 use log::{error, info, trace, warn};
-use potnet::pot::{get_running_pot_list, SystemConf};
+use potnet::pot::{get_running_pot_list, PotSystemConfig};
 use std::collections::HashMap;
 use std::process::{Command as PCommand, Stdio};
 use structopt::StructOpt;
@@ -128,7 +128,7 @@ fn get_ncpu() -> Result<u32, PotCpuError> {
     }
 }
 
-fn get_cpusets(conf: &SystemConf) -> Result<HashMap<String, Allocation>, PotCpuError> {
+fn get_cpusets(conf: &PotSystemConfig) -> Result<HashMap<String, Allocation>, PotCpuError> {
     let mut result = HashMap::new();
     for pot in get_running_pot_list(conf) {
         let output = PCommand::new("/usr/bin/cpuset")
@@ -169,7 +169,7 @@ fn get_potcpuconstraints(
     Ok(result)
 }
 
-fn show(opt: &Opt, conf: &SystemConf) -> Result<(), Error> {
+fn show(opt: &Opt, conf: &PotSystemConfig) -> Result<(), Error> {
     let ncpu = get_ncpu()?;
     let pot_cpusets = get_cpusets(conf)?;
     let pot_constraints = get_potcpuconstraints(&pot_cpusets)?;
@@ -194,7 +194,7 @@ fn show(opt: &Opt, conf: &SystemConf) -> Result<(), Error> {
     Ok(())
 }
 
-fn get_cpu_allocation(conf: &SystemConf) -> Result<HashMap<u32, u32>, PotCpuError> {
+fn get_cpu_allocation(conf: &PotSystemConfig) -> Result<HashMap<u32, u32>, PotCpuError> {
     let pot_cpusets = get_cpusets(conf)?;
     let ncpu = get_ncpu()?;
     let mut result: HashMap<u32, u32> = HashMap::new();
@@ -210,7 +210,7 @@ fn get_cpu_allocation(conf: &SystemConf) -> Result<HashMap<u32, u32>, PotCpuErro
     Ok(result)
 }
 
-fn get_cpu(_opt: &Opt, conf: &SystemConf, cpu_amount: u32) -> Result<(), Error> {
+fn get_cpu(_opt: &Opt, conf: &PotSystemConfig, cpu_amount: u32) -> Result<(), Error> {
     let ncpu = get_ncpu()?;
     if ncpu <= cpu_amount {
         info!("Not enough CPU in the system to provide a meaningful allocation");
@@ -230,7 +230,7 @@ fn get_cpu(_opt: &Opt, conf: &SystemConf, cpu_amount: u32) -> Result<(), Error> 
     Ok(())
 }
 
-fn rebalance(_opt: &Opt, conf: &SystemConf) -> Result<(), Error> {
+fn rebalance(_opt: &Opt, conf: &PotSystemConfig) -> Result<(), Error> {
     let cpu_counters = get_cpu_allocation(conf)?;
     let min = cpu_counters
         .iter()
@@ -279,12 +279,7 @@ fn main() -> Result<(), Error> {
     opt.verbose.set_log_level();
     trace!("potcpu start");
 
-    let conf = SystemConf::new();
-    if !conf.is_valid() {
-        error!("No valid configuration found");
-        println!("No valid configuration found");
-        return Ok(());
-    }
+    let conf = PotSystemConfig::from_system()?;
     match opt.subcommand {
         Command::Show => show(&opt, &conf)?,
         Command::GetCpu(cmd_opt) => get_cpu(&opt, &conf, cmd_opt.cpu_amount)?,
