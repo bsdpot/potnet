@@ -59,7 +59,7 @@ struct BridgeOpt {
 struct ValidateOpt {
     #[structopt(flatten)]
     ip: HostParam,
-    /// The name of the private bridge, if the IP blongs to it
+    /// The name of the private bridge, if the IP belongs to it
     #[structopt(short = "-b", long = "--bridge-name")]
     bridge_name: Option<String>,
 }
