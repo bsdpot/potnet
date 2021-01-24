@@ -188,10 +188,10 @@ fn get_pot_prefix() -> Result<PathBuf> {
     let pot_path = PathBuf::from(String::from_utf8(pathname.stdout)?);
     let pot_prefix = pot_path
         .parent()
-        .ok_or(PotError::PathError(format!("{}", pot_path.display())))?;
+        .ok_or_else(|| PotError::PathError(format!("{}", pot_path.display())))?;
     let pot_prefix = pot_prefix
         .parent()
-        .ok_or(PotError::PathError(format!("{}", pot_prefix.display())))?;
+        .ok_or_else(|| PotError::PathError(format!("{}", pot_prefix.display())))?;
     Ok(pot_prefix.to_path_buf())
 }
 #[cfg(test)]
