@@ -1,3 +1,6 @@
+pub mod error;
+mod system;
+
 use ipnet::IpNet;
 use std::default::Default;
 use std::fs::File;
@@ -8,7 +11,9 @@ use std::process::{Command, Stdio};
 use std::str::FromStr;
 use walkdir::WalkDir;
 
-#[derive(Debug, Clone, PartialEq)]
+pub type Result<T> = ::std::result::Result<T, error::PotError>;
+
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct SystemConf {
     zfs_root: Option<String>,
     pub fs_root: Option<String>,
@@ -20,74 +25,20 @@ pub struct SystemConf {
     pub dns_ip: Option<IpAddr>,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum PotError {
-    WhichError,
-    PathError,
-    FileError,
-    JlsError,
-}
-
-// get pot prefix in the same way as pot does:
-// find PREFIX/bin/pot and get the PREFIX
-fn get_pot_prefix() -> Result<PathBuf, PotError> {
-    let pathname = Command::new("which")
-        .arg("pot")
-        .output()
-        .map_err(|_| PotError::WhichError)?;
-    let pot_path =
-        PathBuf::from(String::from_utf8(pathname.stdout).map_err(|_| PotError::WhichError)?);
-    let pot_prefix = pot_path.parent().ok_or(PotError::PathError)?;
-    let pot_prefix = pot_prefix.parent().ok_or(PotError::PathError)?;
-    Ok(pot_prefix.to_path_buf())
-}
-
-fn get_conf_default() -> Result<String, PotError> {
-    let mut pot_conf = get_pot_prefix()?;
-    pot_conf.push("etc");
-    pot_conf.push("pot");
-    pot_conf.push("pot.default.conf");
-
-    let mut conf_file = File::open(pot_conf.as_path()).map_err(|_| PotError::FileError)?;
-    let mut conf_str = String::new();
-    let _ = conf_file
-        .read_to_string(&mut conf_str)
-        .map_err(|_| PotError::FileError)?;
-    Ok(conf_str)
-}
-
-fn get_conf() -> Result<String, PotError> {
-    let mut pot_conf = get_pot_prefix()?;
-    pot_conf.push("etc");
-    pot_conf.push("pot");
-    pot_conf.push("pot.conf");
-
-    let mut conf_file = File::open(pot_conf.as_path()).map_err(|_| PotError::FileError)?;
-    let mut conf_str = String::new();
-    match conf_file.read_to_string(&mut conf_str) {
-        Ok(_) => (),
-        Err(_) => return Err(PotError::FileError),
-    }
-    Ok(conf_str)
-}
-
-impl Default for SystemConf {
-    fn default() -> SystemConf {
-        SystemConf {
-            zfs_root: None,
-            fs_root: None,
-            network: None,
-            netmask: None,
-            gateway: None,
-            ext_if: None,
-            dns_name: None,
-            dns_ip: None,
-        }
-    }
+#[derive(Debug, Clone)]
+pub struct PotSystemConfig {
+    pub zfs_root: String,
+    pub fs_root: String,
+    pub network: IpNet,
+    pub netmask: IpAddr,
+    pub gateway: IpAddr,
+    pub ext_if: String,
+    pub dns_name: String,
+    pub dns_ip: IpAddr,
 }
 
 impl FromStr for SystemConf {
-    type Err = PotError;
+    type Err = error::PotError;
     /// Create a pot System configuration from a string
     ///
     /// # Examples
@@ -108,7 +59,7 @@ impl FromStr for SystemConf {
     /// assert_eq!(uut.dns_name.unwrap(), "test-dns".to_string());
     /// assert_eq!(uut.dns_ip.is_none(), true);
     /// ```
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let mut default = SystemConf::default();
         let lines: Vec<String> = s
             .to_string()
@@ -184,13 +135,13 @@ impl FromStr for SystemConf {
 
 impl SystemConf {
     pub fn new() -> SystemConf {
-        let s = match get_conf_default() {
+        let s = match system::get_conf_default() {
             Ok(s) => s,
             Err(_) => return SystemConf::default(),
         };
 
         let mut dconf = SystemConf::from_str(&s).ok().unwrap_or_default();
-        let s = match get_conf() {
+        let s = match system::get_conf() {
             Ok(s) => s,
             Err(_) => return dconf,
         };
@@ -271,8 +222,8 @@ impl BridgeConf {
 }
 
 impl FromStr for BridgeConf {
-    type Err = PotError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    type Err = error::PotError;
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let lines: Vec<String> = s
             .to_string()
             .lines()
@@ -310,10 +261,7 @@ impl FromStr for BridgeConf {
                 }
             }
         }
-        match BridgeConf::optional_new(name, network, gateway) {
-            Some(bridge) => Ok(bridge),
-            None => Err(PotError::FileError),
-        }
+        BridgeConf::optional_new(name, network, gateway).ok_or(error::PotError::BridgeConfError)
     }
 }
 pub fn get_bridges_path_list(conf: &SystemConf) -> Vec<PathBuf> {
@@ -409,7 +357,7 @@ pub fn get_pot_list(conf: &SystemConf) -> Vec<String> {
     result
 }
 
-fn is_pot_running(pot_name: &str) -> Result<bool, PotError> {
+fn is_pot_running(pot_name: &str) -> Result<bool> {
     let status = Command::new("/usr/sbin/jls")
         .arg("-j")
         .arg(pot_name)
@@ -420,7 +368,7 @@ fn is_pot_running(pot_name: &str) -> Result<bool, PotError> {
     if let Ok(status) = status {
         Ok(status.success())
     } else {
-        Err(PotError::JlsError)
+        Err(error::PotError::JlsError)
     }
 }
 
