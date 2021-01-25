@@ -37,14 +37,14 @@ impl PartialSystemConf {
     }
 
     pub fn is_valid(&self) -> bool {
-        self.zfs_root != None
-            && self.fs_root != None
-            && self.network != None
-            && self.netmask != None
-            && self.gateway != None
-            && self.ext_if != None
-            && self.dns_name != None
-            && self.dns_ip != None
+        self.zfs_root.is_some()
+            && self.fs_root.is_some()
+            && self.network.is_some()
+            && self.netmask.is_some()
+            && self.gateway.is_some()
+            && self.ext_if.is_some()
+            && self.dns_name.is_some()
+            && self.dns_ip.is_some()
     }
 
     fn merge(&mut self, rhs: PartialSystemConf) {
@@ -82,6 +82,7 @@ impl PartialSystemConf {
 impl FromStr for PartialSystemConf {
     type Err = PotError;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        use crate::pot::util::get_value;
         let mut default = PartialSystemConf::default();
         let lines: Vec<String> = s
             .to_string()
@@ -91,64 +92,28 @@ impl FromStr for PartialSystemConf {
             .collect();
         for linestr in &lines {
             if linestr.starts_with("POT_ZFS_ROOT=") {
-                default.zfs_root = match linestr.split('=').nth(1) {
-                    Some(s) => Some(s.split(' ').nth(0).unwrap().to_string()),
-                    None => None,
-                }
+                default.zfs_root = get_value(linestr);
             }
             if linestr.starts_with("POT_FS_ROOT=") {
-                default.fs_root = match linestr.split('=').nth(1) {
-                    Some(s) => Some(s.split(' ').nth(0).unwrap().to_string()),
-                    None => None,
-                }
+                default.fs_root = get_value(linestr);
             }
             if linestr.starts_with("POT_EXTIF=") {
-                default.ext_if = match linestr.split('=').nth(1) {
-                    Some(s) => Some(s.split(' ').nth(0).unwrap().to_string()),
-                    None => None,
-                }
+                default.ext_if = get_value(linestr);
             }
             if linestr.starts_with("POT_DNS_NAME=") {
-                default.dns_name = match linestr.split('=').nth(1) {
-                    Some(s) => Some(s.split(' ').nth(0).unwrap().to_string()),
-                    None => None,
-                }
+                default.dns_name = get_value(linestr);
             }
             if linestr.starts_with("POT_NETWORK=") {
-                default.network = match linestr.split('=').nth(1) {
-                    Some(s) => match s.split(' ').nth(0).unwrap().to_string().parse::<IpNet>() {
-                        Ok(ip) => Some(ip),
-                        Err(_) => None,
-                    },
-                    None => None,
-                };
+                default.network = get_value(linestr);
             }
             if linestr.starts_with("POT_NETMASK=") {
-                default.netmask = match linestr.split('=').nth(1) {
-                    Some(s) => match s.split(' ').nth(0).unwrap().to_string().parse::<IpAddr>() {
-                        Ok(ip) => Some(ip),
-                        Err(_) => None,
-                    },
-                    None => None,
-                };
+                default.netmask = get_value(linestr);
             }
             if linestr.starts_with("POT_GATEWAY=") {
-                default.gateway = match linestr.split('=').nth(1) {
-                    Some(s) => match s.split(' ').nth(0).unwrap().to_string().parse::<IpAddr>() {
-                        Ok(ip) => Some(ip),
-                        Err(_) => None,
-                    },
-                    None => None,
-                };
+                default.gateway = get_value(linestr);
             }
             if linestr.starts_with("POT_DNS_IP=") {
-                default.dns_ip = match linestr.split('=').nth(1) {
-                    Some(s) => match s.split(' ').nth(0).unwrap().to_string().parse::<IpAddr>() {
-                        Ok(ip) => Some(ip),
-                        Err(_) => None,
-                    },
-                    None => None,
-                };
+                default.dns_ip = get_value(linestr);
             }
         }
         Ok(default)
@@ -188,10 +153,10 @@ fn get_pot_prefix() -> Result<PathBuf> {
     let pot_path = PathBuf::from(String::from_utf8(pathname.stdout)?);
     let pot_prefix = pot_path
         .parent()
-        .ok_or(PotError::PathError(format!("{}", pot_path.display())))?;
+        .ok_or_else(|| PotError::PathError(format!("{}", pot_path.display())))?;
     let pot_prefix = pot_prefix
         .parent()
-        .ok_or(PotError::PathError(format!("{}", pot_prefix.display())))?;
+        .ok_or_else(|| PotError::PathError(format!("{}", pot_prefix.display())))?;
     Ok(pot_prefix.to_path_buf())
 }
 #[cfg(test)]
