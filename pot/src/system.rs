@@ -1,5 +1,5 @@
-use crate::pot::error::PotError;
-use crate::pot::Result;
+use crate::error::PotError;
+use crate::Result;
 use ipnet::IpNet;
 use std::default::Default;
 use std::net::IpAddr;
@@ -82,7 +82,7 @@ impl PartialSystemConf {
 impl FromStr for PartialSystemConf {
     type Err = PotError;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        use crate::pot::util::get_value;
+        use crate::util::get_value;
         let mut default = PartialSystemConf::default();
         let lines: Vec<String> = s
             .to_string()

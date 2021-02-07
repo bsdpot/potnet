@@ -1,11 +1,11 @@
-use crate::pot::error::PotError;
-use crate::pot::Result;
+use crate::error::PotError;
+use crate::Result;
 use ipnet::IpNet;
 use std::convert::TryFrom;
 use std::net::IpAddr;
 use std::str::FromStr;
 
-use crate::pot::PotSystemConfig;
+use crate::PotSystemConfig;
 use std::path::PathBuf;
 
 pub fn get_bridges_list(conf: &PotSystemConfig) -> Result<Vec<BridgeConf>> {
@@ -41,7 +41,7 @@ pub struct BridgeConf {
 }
 
 impl FromStr for BridgeConf {
-    type Err = crate::pot::error::PotError;
+    type Err = crate::error::PotError;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let partial = PartialBridgeConf::from_str(s).unwrap();
         BridgeConf::try_from(partial)
@@ -80,7 +80,7 @@ struct PartialBridgeConf {
 impl FromStr for PartialBridgeConf {
     type Err = std::convert::Infallible;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        use crate::pot::util::get_value;
+        use crate::util::get_value;
         let lines: Vec<String> = s
             .to_string()
             .lines()

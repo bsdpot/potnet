@@ -286,6 +286,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pot"
+version = "0.5.0"
+dependencies = [
+ "ipnet",
+ "thiserror",
+ "walkdir",
+]
+
+[[package]]
 name = "potnet"
 version = "0.4.4"
 dependencies = [
@@ -293,6 +302,7 @@ dependencies = [
  "ipnet",
  "itertools",
  "log",
+ "pot",
  "structopt",
  "structopt-flags",
  "thiserror",

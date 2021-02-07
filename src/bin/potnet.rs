@@ -1,8 +1,8 @@
 use anyhow::{bail, Result};
 use ipnet::IpNet;
 use log::{debug, error, info, trace};
-use potnet::pot::bridge::{get_bridges_list, BridgeConf};
-use potnet::pot::{get_pot_conf_list, NetType, PotSystemConfig};
+use pot::bridge::{get_bridges_list, BridgeConf};
+use pot::{get_pot_conf_list, NetType, PotSystemConfig};
 use std::collections::BTreeMap;
 use std::net::IpAddr;
 use std::net::IpAddr::{V4, V6};

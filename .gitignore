@@ -1,4 +1,4 @@
-
+/pot/target/
 /target/
 **/*.rs.bk
 *.swp

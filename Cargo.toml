@@ -17,6 +17,10 @@ anyhow = "1"
 version = "^0.3"
 features = ["simplelog"]
 
+[dependencies.pot]
+version = "=0.5.0"
+path = "pot"
+
 [profile.release]
 lto = true
 
