@@ -146,16 +146,10 @@ fn get_network_size(host_number: u16) -> Option<u8> {
 }
 
 fn get_prefix_length(host_number: u16, ip_addr: &IpAddr) -> Option<u8> {
-    if let Some(network_size) = get_network_size(host_number) {
-        Some(
-            match ip_addr {
-                V4(_) => 32,
-                V6(_) => 128,
-            } - network_size,
-        )
-    } else {
-        None
-    }
+    get_network_size(host_number).map(|network_size| match ip_addr {
+        V4(_) => 32,
+        V6(_) => 128,
+    } - network_size)
 }
 
 fn is_subnet_usable(subnet: IpNet, ip_db: &BTreeMap<IpAddr, Option<String>>) -> bool {
