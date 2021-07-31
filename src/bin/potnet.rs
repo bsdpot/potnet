@@ -97,7 +97,7 @@ fn show_bridge(_opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) -> Result<
     if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
         info!("bridge {} found", bridge.name);
         let mut ip_db = BTreeMap::new();
-        init_bridge_ipdb(&bridge, conf, &mut ip_db);
+        init_bridge_ipdb(bridge, conf, &mut ip_db);
         for (ip, opt_name) in ip_db.iter() {
             println!(
                 "\t{}\t{}",
@@ -190,7 +190,7 @@ fn get_next_from_bridge(opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) ->
     if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
         info!("bridge {} found", bridge.name);
         let mut ip_db = BTreeMap::new();
-        init_bridge_ipdb(&bridge, conf, &mut ip_db);
+        init_bridge_ipdb(bridge, conf, &mut ip_db);
         for addr in bridge.network.hosts() {
             if !ip_db.contains_key(&addr) {
                 if opt.verbose.get_level_filter() > log::LevelFilter::Warn {
@@ -244,7 +244,7 @@ fn validate_with_bridge(conf: &PotSystemConfig, bridge_name: &str, ip: IpAddr) -
     if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
         info!("bridge {} found", bridge.name);
         let mut ip_db = BTreeMap::new();
-        init_bridge_ipdb(&bridge, conf, &mut ip_db);
+        init_bridge_ipdb(bridge, conf, &mut ip_db);
         // the ip address is in the bridge network
         if !bridge.network.contains(&ip) {
             error!("ip {} not in the bridge network {}", ip, bridge.network);
