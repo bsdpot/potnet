@@ -203,7 +203,7 @@ fn rebalance(_opt: &Opt, conf: &PotSystemConfig) -> Result<()> {
     let pot_constraints = get_potcpuconstraints(&pot_allocations)?;
     let mut pot_new_allocations = HashMap::new();
     let mut cpu_index_counter: u32 = 0;
-    for (pot_name, amount_cpu) in pot_constraints.iter().sorted_by(|a, b| a.0.cmp(&b.0)) {
+    for (pot_name, amount_cpu) in pot_constraints.iter().sorted_by(|a, b| a.0.cmp(b.0)) {
         let mut cpus: Vec<u32> = Vec::new();
         for _ in 0..*amount_cpu {
             cpus.push(cpu_index_counter);
