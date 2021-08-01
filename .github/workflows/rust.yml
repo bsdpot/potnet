@@ -26,7 +26,7 @@ jobs:
     name: Test Rust ${{ matrix.rust }}
     runs-on: ubuntu-latest
     strategy:
-      fail-test: false
+      fail-fast: false
       matrix:
         rust: [stable, beta, nightly]
 
