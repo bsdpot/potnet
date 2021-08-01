@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use itertools::Itertools;
 use log::{info, trace, warn};
-use pot::{get_running_pot_list, PotSystemConfig};
+use pot_rs::{get_running_pot_list, PotSystemConfig};
 use std::collections::HashMap;
 use std::process::{Command as PCommand, Stdio};
 use structopt::StructOpt;

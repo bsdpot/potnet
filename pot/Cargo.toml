@@ -1,8 +1,12 @@
 [package]
-name = "pot"
+name = "pot-rs"
 version = "0.5.0"
 authors = ["Luca Pizzamiglio <pizzamig@FreeBSD.org>"]
 edition = "2018"
+keywords = ["FreeBSD"]
+description = "Utility modules and functions useful to interact with the pot framework"
+readme = "README.md"
+license-file = "LICENSE"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

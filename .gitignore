@@ -1,4 +1,5 @@
 /pot/target/
+/pot/Cargo.lock
 /target/
 **/*.rs.bk
 *.swp
