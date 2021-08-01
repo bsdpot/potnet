@@ -3,6 +3,12 @@ name = "potnet"
 version = "0.4.4"
 authors = ["Luca Pizzamiglio <pizzamig@FreeBSD.org>"]
 edition = "2018"
+categories = ["command-line-interface"]
+keywords = ["FreeBSD"]
+repository = "https://github.com/pizzamig/potnet"
+description = "Command line utilities needed by the pot framework"
+readme = "README.md"
+license-file = "LICENSE"
 
 [dependencies]
 structopt = {version = "0.3", default-features = false }
