@@ -279,7 +279,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_potcpuallocation() {
+    fn test_get_potcpuconstraints() {
         let empty_hm = HashMap::new();
         let result = get_potcpuconstraints(&empty_hm);
         assert!(result.is_ok());
