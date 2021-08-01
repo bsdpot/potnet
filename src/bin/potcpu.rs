@@ -285,5 +285,19 @@ mod tests {
         assert!(result.is_ok());
         let result = result.unwrap();
         assert!(result.is_empty());
+
+        let mut one_full_allocation = HashMap::new();
+        one_full_allocation.insert("pot-test".to_string(), vec![0, 1]);
+        let result = get_potcpuconstraints(&one_full_allocation);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert!(result.is_empty());
+
+        let mut one_half_allocation = HashMap::new();
+        one_half_allocation.insert("pot-test".to_string(), vec![0]);
+        let result = get_potcpuconstraints(&one_half_allocation);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert_eq!(result.len(), 1);
     }
 }
