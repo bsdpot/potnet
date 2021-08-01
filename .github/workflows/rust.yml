@@ -1,20 +1,41 @@
 name: Rust
 
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
+  clippy:
+    name: Lint with Clippy
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -Dwarnings
+    steps:
+    - uses: actions/checkout@v2
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        components: clippy
+    - name: Header
+      run: rustc -Vv
+    - name: clippy
+      run: cargo clippy --verbose --all-targets
+
+  test-versions:
+    name: Test Rust ${{ matrix.rust }}
+    runs-on: ubuntu-latest
     strategy:
+      fail-test: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
         rust: [stable, beta, nightly]
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        rust-version: ${{ matrix.rust }}
     - name: Header
       run: rustc -Vv
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
+    - name: test
       run: cargo test --verbose
