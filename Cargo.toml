@@ -23,9 +23,9 @@ anyhow = "1"
 version = "^0.3"
 features = ["simplelog"]
 
-[dependencies.pot]
+[dependencies.pot-rs]
 version = "=0.5.0"
-path = "pot"
+path = "pot-rs"
 
 [profile.release]
 lto = true
