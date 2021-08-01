@@ -267,6 +267,11 @@ mod tests {
         assert_eq!(result.len(), 8);
         assert_eq!(result[0], 0);
         assert_eq!(result[7], 7);
+
+        let error1 = allocation_from_utf8("".as_bytes());
+        assert!(error1.is_err());
+        let error2 = allocation_from_utf8("no jail mask".as_bytes());
+        assert!(error2.is_err());
     }
 
     #[test]
