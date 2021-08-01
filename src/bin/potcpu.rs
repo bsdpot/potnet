@@ -49,7 +49,7 @@ fn allocation_from_utf8(v: &[u8]) -> Result<Allocation> {
         .split(':')
         .nth(1)
         .ok_or_else(|| anyhow!("cpuset: malformed stdout"))?;
-    let result: Vec<u32> = mask
+    let result: Allocation = mask
         .split(',')
         .map(str::trim)
         .map(str::parse)
@@ -73,6 +73,18 @@ fn allocation_to_string(allocation: &AllocationRef, ncpu: u32) -> String {
 }
 
 fn get_ncpu() -> Result<u32> {
+    // test implementation that always return 2
+    #[cfg(test)]
+    use std::os::unix::process::ExitStatusExt;
+    #[cfg(test)]
+    let output = std::process::Output {
+        status: std::process::ExitStatus::from_raw(0),
+        stdout: "2".as_bytes().to_vec(),
+        stderr: vec![],
+    };
+
+    // real implementation
+    #[cfg(not(test))]
     let output = PCommand::new("/sbin/sysctl")
         .arg("-n")
         .arg("hw.ncpu")
@@ -238,4 +250,59 @@ fn main() -> Result<()> {
         Command::Rebalance => rebalance(&opt, &conf)?,
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_allocation_from_utf8() {
+        let test_str =
+            "jail 1 mask: 0, 1, 2, 3, 4, 5, 6, 7\njail 1 domain policy: first-touch mask: 0";
+        let test_byte = test_str.as_bytes();
+        let result = allocation_from_utf8(test_byte);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert_eq!(result.len(), 8);
+        assert_eq!(result[0], 0);
+        assert_eq!(result[7], 7);
+
+        let error1 = allocation_from_utf8("".as_bytes());
+        assert!(error1.is_err());
+        let error2 = allocation_from_utf8("no jail mask".as_bytes());
+        assert!(error2.is_err());
+    }
+
+    #[test]
+    fn test_allocation_to_string() {
+        let uut = vec![0, 1];
+        let result = allocation_to_string(&uut, 2);
+        assert_eq!("not restricted".to_string(), result);
+        let result = allocation_to_string(&uut, 8);
+        assert_eq!("0 1".to_string(), result.trim());
+    }
+
+    #[test]
+    fn test_get_potcpuconstraints() {
+        let empty_hm = HashMap::new();
+        let result = get_potcpuconstraints(&empty_hm);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert!(result.is_empty());
+
+        let mut one_full_allocation = HashMap::new();
+        one_full_allocation.insert("pot-test".to_string(), vec![0, 1]);
+        let result = get_potcpuconstraints(&one_full_allocation);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert!(result.is_empty());
+
+        let mut one_half_allocation = HashMap::new();
+        one_half_allocation.insert("pot-test".to_string(), vec![0]);
+        let result = get_potcpuconstraints(&one_half_allocation);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert_eq!(result.len(), 1);
+    }
 }
