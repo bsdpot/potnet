@@ -29,7 +29,6 @@ jobs:
       fail-fast: false
       matrix:
         rust: [stable, beta, nightly]
-
     steps:
     - uses: actions/checkout@v2
     - uses: hecrj/setup-rust-action@v1
@@ -39,3 +38,13 @@ jobs:
       run: rustc -Vv
     - name: test
       run: cargo test --verbose
+
+  code-coverage:
+    name: Generate code coverage
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: hecrj/setup-rust-action@v1
+    - uses: actions-rs/tarpaulin@v0.1
+    - name: Upload to codecov.io
+      uses: codecov/codecov-action@v1
