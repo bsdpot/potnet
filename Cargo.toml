@@ -27,6 +27,9 @@ features = ["simplelog"]
 version = "=0.5.0"
 path = "pot"
 
+[dev-dependencies]
+mocktopus = "0.7"
+
 [profile.release]
 lto = true
 
