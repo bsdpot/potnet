@@ -92,6 +92,7 @@ fn get_ncpu() -> Result<u32> {
     Ok(ncpu)
 }
 
+#[cfg_attr(test, mockable)]
 fn get_cpusets(conf: &PotSystemConfig) -> Result<HashMap<String, Allocation>> {
     let mut result = HashMap::new();
     for pot in get_running_pot_list(conf) {
@@ -300,5 +301,29 @@ mod tests {
         assert!(result.is_ok());
         let result = result.unwrap();
         assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_get_cpu_allocation() {
+        use mocktopus::mocking::*;
+        get_ncpu.mock_safe(|| MockResult::Return(Ok(4)));
+        let mut pot_cpusets = HashMap::new();
+        pot_cpusets.insert("pot0".to_string(), vec![0]);
+        pot_cpusets.insert("pot12".to_string(), vec![1, 2]);
+        pot_cpusets.insert("pot013".to_string(), vec![0, 1, 3]);
+        get_cpusets.mock_safe(move |_| MockResult::Return(Ok(pot_cpusets.clone())));
+        let conf = PotSystemConfig::default();
+
+        let result = get_cpu_allocation(&conf);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert!(result.contains_key(&0));
+        assert!(result.contains_key(&1));
+        assert!(result.contains_key(&2));
+        assert!(result.contains_key(&3));
+        assert_eq!(result.get(&0).unwrap(), &2);
+        assert_eq!(result.get(&1).unwrap(), &2);
+        assert_eq!(result.get(&2).unwrap(), &1);
+        assert_eq!(result.get(&3).unwrap(), &1);
     }
 }
