@@ -10,9 +10,6 @@ jobs:
   clippy:
     name: Lint with Clippy
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust: [stable, beta, nightly]
     env:
       RUSTFLAGS: -Dwarnings
     steps:
@@ -20,7 +17,7 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         components: clippy
-        rust-version: ${{ matrix.rust }}
+        rust-version: nightly
     - name: Header
       run: rustc -Vv
     - name: clippy
@@ -47,6 +44,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: hecrj/setup-rust-action@v1
+      with:
+        rust-version: nightly
     - uses: actions-rs/tarpaulin@v0.1
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v1
