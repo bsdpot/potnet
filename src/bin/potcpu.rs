@@ -1,6 +1,10 @@
+#![cfg_attr(test, feature(proc_macro_hygiene))]
+
 use anyhow::{anyhow, Result};
 use itertools::Itertools;
 use log::{info, trace, warn};
+#[cfg(test)]
+use mocktopus::macros::*;
 use pot_rs::{get_running_pot_list, PotSystemConfig};
 use std::collections::HashMap;
 use std::process::{Command as PCommand, Stdio};
@@ -72,19 +76,9 @@ fn allocation_to_string(allocation: &AllocationRef, ncpu: u32) -> String {
     }
 }
 
+#[cfg_attr(test, mockable)]
 fn get_ncpu() -> Result<u32> {
-    // test implementation that always return 2
-    #[cfg(test)]
-    use std::os::unix::process::ExitStatusExt;
-    #[cfg(test)]
-    let output = std::process::Output {
-        status: std::process::ExitStatus::from_raw(0),
-        stdout: "2".as_bytes().to_vec(),
-        stderr: vec![],
-    };
-
     // real implementation
-    #[cfg(not(test))]
     let output = PCommand::new("/sbin/sysctl")
         .arg("-n")
         .arg("hw.ncpu")
@@ -285,6 +279,8 @@ mod tests {
 
     #[test]
     fn test_get_potcpuconstraints() {
+        use mocktopus::mocking::*;
+        get_ncpu.mock_safe(|| MockResult::Return(Ok(2)));
         let empty_hm = HashMap::new();
         let result = get_potcpuconstraints(&empty_hm);
         assert!(result.is_ok());
