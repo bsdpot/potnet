@@ -28,6 +28,22 @@ pub struct PotSystemConfig {
     pub dns_ip: IpAddr,
 }
 
+impl Default for PotSystemConfig {
+    fn default() -> Self {
+        use std::net::Ipv4Addr;
+        PotSystemConfig {
+            zfs_root: String::default(),
+            fs_root: String::default(),
+            network: IpNet::default(),
+            netmask: IpAddr::V4(Ipv4Addr::new(255, 255, 255, 0)),
+            gateway: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            ext_if: String::default(),
+            dns_name: String::default(),
+            dns_ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+        }
+    }
+}
+
 impl PotSystemConfig {
     pub fn from_system() -> Result<Self> {
         let psc = system::PartialSystemConf::new();
