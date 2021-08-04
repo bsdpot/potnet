@@ -8,8 +8,11 @@ on:
 
 jobs:
   clippy:
-    name: Lint with Clippy
+    name: Lint with Clippy - ${{matrix.rust}}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable, beta, nightly]
     env:
       RUSTFLAGS: -Dwarnings
     steps:
@@ -17,14 +20,14 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         components: clippy
-        rust-version: nightly
+        rust-version: ${{ matrix.rust }}
     - name: Header
       run: rustc -Vv
     - name: clippy
-      run: cargo clippy --verbose --all-targets
+      run: cargo clippy --verbose --bins
 
   test-versions:
-    name: Test Rust ${{ matrix.rust }}
+    name: Test Rust - nightly
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
