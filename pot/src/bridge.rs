@@ -114,38 +114,58 @@ mod tests {
     use super::*;
 
     #[test]
+    fn bridge_conf_try_from() {
+        let pbc = PartialBridgeConf::from_str(
+            "net=10.192.0.24/29\ngateway=10.192.0.25\nname=test-bridge",
+        );
+        assert!(pbc.is_ok());
+        let pbc = pbc.unwrap();
+        assert!(pbc.is_valid());
+        let uut = BridgeConf::try_from(pbc);
+        assert!(uut.is_ok());
+        let uut = uut.unwrap();
+        assert_eq!(&uut.name, "test-bridge");
+        use std::net::Ipv4Addr;
+        assert_eq!(uut.gateway, IpAddr::V4(Ipv4Addr::new(10, 192, 0, 25)));
+        assert_eq!(
+            uut.network,
+            IpNet::V4(ipnet::Ipv4Net::new(Ipv4Addr::new(10, 192, 0, 24), 29).unwrap())
+        );
+    }
+
+    #[test]
     fn bridge_conf_fromstr_001() {
         let uut = BridgeConf::from_str("");
-        assert_eq!(uut.is_ok(), false);
+        assert!(uut.is_err());
     }
 
     #[test]
     fn bridge_conf_fromstr_002() {
         let uut = BridgeConf::from_str("net=10.192.0.24/29");
-        assert_eq!(uut.is_ok(), false);
+        assert!(uut.is_err());
     }
 
     #[test]
     fn bridge_conf_fromstr_003() {
         let uut = BridgeConf::from_str("gateway=10.192.0.24");
-        assert_eq!(uut.is_ok(), false);
+        assert!(uut.is_err());
     }
 
     #[test]
     fn bridge_conf_fromstr_004() {
         let uut = BridgeConf::from_str("name=test-bridge");
-        assert_eq!(uut.is_ok(), false);
+        assert!(uut.is_err());
     }
 
     #[test]
     fn bridge_conf_fromstr_005() {
         let uut = BridgeConf::from_str("net=10.192.0.24/29\ngateway=10.192.1.25\nname=test-bridge");
-        assert_eq!(uut.is_ok(), false);
+        assert!(uut.is_err());
     }
 
     #[test]
     fn bridge_conf_fromstr_020() {
         let uut = BridgeConf::from_str("net=10.192.0.24/29\ngateway=10.192.0.25\nname=test-bridge");
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
     }
 }

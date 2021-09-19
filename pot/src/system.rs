@@ -167,7 +167,7 @@ mod tests {
     #[test]
     fn partial_system_conf_default() {
         let uut = PartialSystemConf::default();
-        assert_eq!(uut.is_valid(), false);
+        assert!(!uut.is_valid());
         assert_eq!(uut.dns_ip, None);
         assert_eq!(uut.dns_name, None);
         assert_eq!(uut.ext_if, None);
@@ -181,38 +181,38 @@ mod tests {
     #[test]
     fn partial_system_conf_fromstr_001() {
         let uut = PartialSystemConf::from_str("");
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), false);
+        assert!(!uut.is_valid());
         assert_eq!(uut, PartialSystemConf::default());
     }
 
     #[test]
     fn partial_system_conf_fromstr_002() {
         let uut = PartialSystemConf::from_str("# Comment 1\n # Comment with space");
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), false);
+        assert!(!uut.is_valid());
         assert_eq!(uut, PartialSystemConf::default());
     }
 
     #[test]
     fn partial_system_conf_fromstr_003() {
         let uut = PartialSystemConf::from_str(" # POT_GATEWAY=192.168.0.1");
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), false);
+        assert!(!uut.is_valid());
         assert_eq!(uut, PartialSystemConf::default());
     }
 
     #[test]
     fn partial_system_conf_fromstr_004() {
         let uut = PartialSystemConf::from_str("POT_GATEWAY=192.168.0.1");
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), false);
+        assert!(!uut.is_valid());
         assert_ne!(uut, PartialSystemConf::default());
-        assert_eq!(uut.gateway.is_some(), true);
+        assert!(uut.gateway.is_some());
         assert_eq!(
             uut.gateway.unwrap(),
             "192.168.0.1".parse::<IpAddr>().unwrap()
@@ -222,20 +222,20 @@ mod tests {
     #[test]
     fn partial_system_conf_fromstr_005() {
         let uut = PartialSystemConf::from_str("POT_NETWORK=192.168.0.0");
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), false);
-        assert_eq!(uut.network.is_some(), false);
+        assert!(!uut.is_valid());
+        assert!(!uut.network.is_some());
     }
 
     #[test]
     fn partial_system_conf_fromstr_006() {
         let uut = PartialSystemConf::from_str("POT_NETWORK=192.168.0.0/24");
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), false);
+        assert!(!uut.is_valid());
         assert_ne!(uut, PartialSystemConf::default());
-        assert_eq!(uut.network.is_some(), true);
+        assert!(uut.network.is_some());
         assert_eq!(
             uut.network.unwrap(),
             "192.168.0.0/24".parse::<IpNet>().unwrap()
@@ -245,44 +245,44 @@ mod tests {
     #[test]
     fn partial_system_conf_fromstr_007() {
         let uut = PartialSystemConf::from_str("POT_DNS_NAME=FOO_DNS");
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), false);
+        assert!(!uut.is_valid());
         assert_ne!(uut, PartialSystemConf::default());
-        assert_eq!(uut.dns_name.is_some(), true);
+        assert!(uut.dns_name.is_some());
         assert_eq!(uut.dns_name.unwrap(), "FOO_DNS".to_string());
     }
 
     #[test]
     fn partial_system_conf_fromstr_008() {
         let uut = PartialSystemConf::from_str("POT_DNS_NAME=\"FOO_DNS\"");
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), false);
+        assert!(!uut.is_valid());
         assert_ne!(uut, PartialSystemConf::default());
-        assert_eq!(uut.dns_name.is_some(), true);
+        assert!(uut.dns_name.is_some());
         assert_ne!(uut.dns_name.unwrap(), "FOO_DNS".to_string());
     }
 
     #[test]
     fn partial_system_conf_fromstr_009() {
         let uut = PartialSystemConf::from_str("POT_DNS_NAME=FOO_DNS # dns pot name");
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), false);
+        assert!(!uut.is_valid());
         assert_ne!(uut, PartialSystemConf::default());
-        assert_eq!(uut.dns_name.is_some(), true);
+        assert!(uut.dns_name.is_some());
         assert_eq!(uut.dns_name.unwrap(), "FOO_DNS".to_string());
     }
 
     #[test]
     fn partial_system_conf_fromstr_010() {
         let uut = PartialSystemConf::from_str("POT_DNS_IP=192.168.240.240 # dns pot ip");
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), false);
+        assert!(!uut.is_valid());
         assert_ne!(uut, PartialSystemConf::default());
-        assert_eq!(uut.dns_ip.is_some(), true);
+        assert!(uut.dns_ip.is_some());
         assert_eq!(
             uut.dns_ip.unwrap(),
             "192.168.240.240".parse::<IpAddr>().unwrap()
@@ -292,11 +292,11 @@ mod tests {
     #[test]
     fn partial_system_conf_fromstr_011() {
         let uut = PartialSystemConf::from_str("POT_NETWORK=192.168.0.0/22 # pots internal network");
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), false);
+        assert!(!uut.is_valid());
         assert_ne!(uut, PartialSystemConf::default());
-        assert_eq!(uut.network.is_some(), true);
+        assert!(uut.network.is_some());
         assert_eq!(
             uut.network.unwrap(),
             "192.168.0.0/22".parse::<IpNet>().unwrap()
@@ -308,11 +308,11 @@ mod tests {
         let uut = PartialSystemConf::from_str(
             "POT_NETWORK=fdf1:186e:49e6:76d8::/64 # pots internal network",
         );
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), false);
+        assert!(!uut.is_valid());
         assert_ne!(uut, PartialSystemConf::default());
-        assert_eq!(uut.network.is_some(), true);
+        assert!(uut.network.is_some());
         assert_eq!(
             uut.network.unwrap(),
             "fdf1:186e:49e6:76d8::/64".parse::<IpNet>().unwrap()
@@ -326,37 +326,37 @@ mod tests {
             POT_NETWORK=192.168.0.0/24\nPOT_NETMASK=255.255.255.0\nPOT_GATEWAY=192.168.0.1\n
             POT_DNS_IP=192.168.0.2\nPOT_DNS_NAME=bar_dns",
         );
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), true);
+        assert!(uut.is_valid());
         assert_ne!(uut, PartialSystemConf::default());
-        assert_eq!(uut.network.is_some(), true);
+        assert!(uut.network.is_some());
         assert_eq!(
             uut.network.unwrap(),
             "192.168.0.0/24".parse::<IpNet>().unwrap()
         );
-        assert_eq!(uut.netmask.is_some(), true);
+        assert!(uut.netmask.is_some());
         assert_eq!(
             uut.netmask.unwrap(),
             "255.255.255.0".parse::<IpAddr>().unwrap()
         );
-        assert_eq!(uut.gateway.is_some(), true);
+        assert!(uut.gateway.is_some());
         assert_eq!(
             uut.gateway.unwrap(),
             "192.168.0.1".parse::<IpAddr>().unwrap()
         );
-        assert_eq!(uut.dns_ip.is_some(), true);
+        assert!(uut.dns_ip.is_some());
         assert_eq!(
             uut.dns_ip.unwrap(),
             "192.168.0.2".parse::<IpAddr>().unwrap()
         );
-        assert_eq!(uut.zfs_root.is_some(), true);
+        assert!(uut.zfs_root.is_some());
         assert_eq!(uut.zfs_root.unwrap(), "zroot/pot".to_string());
-        assert_eq!(uut.fs_root.is_some(), true);
+        assert!(uut.fs_root.is_some());
         assert_eq!(uut.fs_root.unwrap(), "/opt/pot".to_string());
-        assert_eq!(uut.ext_if.is_some(), true);
+        assert!(uut.ext_if.is_some());
         assert_eq!(uut.ext_if.unwrap(), "em0".to_string());
-        assert_eq!(uut.dns_name.is_some(), true);
+        assert!(uut.dns_name.is_some());
         assert_eq!(uut.dns_name.unwrap(), "bar_dns".to_string());
     }
 
@@ -367,37 +367,37 @@ mod tests {
             POT_NETWORK=fdf1:186e:49e6:76d8::/64\nPOT_NETMASK=ffff:ffff:ffff:ffff::\nPOT_GATEWAY=fdf1:186e:49e6:76d8::1\n
             POT_DNS_IP=fdf1:186e:49e6:76d8::2\nPOT_DNS_NAME=bar_dns",
         );
-        assert_eq!(uut.is_ok(), true);
+        assert!(uut.is_ok());
         let uut = uut.unwrap();
-        assert_eq!(uut.is_valid(), true);
+        assert!(uut.is_valid());
         assert_ne!(uut, PartialSystemConf::default());
-        assert_eq!(uut.network.is_some(), true);
+        assert!(uut.network.is_some());
         assert_eq!(
             uut.network.unwrap(),
             "fdf1:186e:49e6:76d8::/64".parse::<IpNet>().unwrap()
         );
-        assert_eq!(uut.netmask.is_some(), true);
+        assert!(uut.netmask.is_some());
         assert_eq!(
             uut.netmask.unwrap(),
             "ffff:ffff:ffff:ffff::".parse::<IpAddr>().unwrap()
         );
-        assert_eq!(uut.gateway.is_some(), true);
+        assert!(uut.gateway.is_some());
         assert_eq!(
             uut.gateway.unwrap(),
             "fdf1:186e:49e6:76d8::1".parse::<IpAddr>().unwrap()
         );
-        assert_eq!(uut.dns_ip.is_some(), true);
+        assert!(uut.dns_ip.is_some());
         assert_eq!(
             uut.dns_ip.unwrap(),
             "fdf1:186e:49e6:76d8::2".parse::<IpAddr>().unwrap()
         );
-        assert_eq!(uut.zfs_root.is_some(), true);
+        assert!(uut.zfs_root.is_some());
         assert_eq!(uut.zfs_root.unwrap(), "zroot/pot".to_string());
-        assert_eq!(uut.fs_root.is_some(), true);
+        assert!(uut.fs_root.is_some());
         assert_eq!(uut.fs_root.unwrap(), "/opt/pot".to_string());
-        assert_eq!(uut.ext_if.is_some(), true);
+        assert!(uut.ext_if.is_some());
         assert_eq!(uut.ext_if.unwrap(), "em0".to_string());
-        assert_eq!(uut.dns_name.is_some(), true);
+        assert!(uut.dns_name.is_some());
         assert_eq!(uut.dns_name.unwrap(), "bar_dns".to_string());
     }
 
