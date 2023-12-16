@@ -49,18 +49,18 @@ jobs:
     - name: test
       run: cargo test --verbose
 
-  code-coverage:
-    name: Generate code coverage
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
-    - uses: Swatinem/rust-cache@v1
-    - uses: actions-rs/tarpaulin@v0.1
-      with:
-        version: '0.26.0'
-    - name: Upload to codecov.io
-      uses: codecov/codecov-action@v1
+  #code-coverage:
+    #name: Generate code coverage
+    #runs-on: ubuntu-latest
+    #steps:
+    #- uses: actions/checkout@v2
+    #- uses: actions-rs/toolchain@v1
+      #with:
+        #toolchain: stable
+        #override: true
+    #- uses: Swatinem/rust-cache@v1
+    #- uses: actions-rs/tarpaulin@v0.1
+      #with:
+        #version: '0.26.0'
+    #- name: Upload to codecov.io
+      #uses: codecov/codecov-action@v1
