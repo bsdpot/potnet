@@ -12,15 +12,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [stable, beta, nightly]
+        rust:
+          - stable
+          - beta
+          - nightly
     env:
       RUSTFLAGS: -Dwarnings
     steps:
     - uses: actions/checkout@v2
-    - uses: hecrj/setup-rust-action@v1
+    - uses: actions-rs/toolchain@v1
       with:
+        toolchain: ${{ matrix.rust }}
         components: clippy
-        rust-version: ${{ matrix.rust }}
+        override: true
     - uses: Swatinem/rust-cache@v1
     - name: Header
       run: rustc -Vv
