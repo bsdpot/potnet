@@ -28,7 +28,7 @@ version = "=0.5.0"
 path = "pot"
 
 [dev-dependencies]
-mocktopus = "0.7"
+mocktopus = "0.8"
 
 [profile.release]
 lto = true
