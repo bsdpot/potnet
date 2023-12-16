@@ -50,7 +50,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
       with:
-        toolchain: nightly
+        toolchain: stable
         override: true
     - uses: Swatinem/rust-cache@v1
     - uses: actions-rs/tarpaulin@v0.1
