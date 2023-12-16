@@ -35,8 +35,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: hecrj/setup-rust-action@v1
+    - uses: actions-rs/toolchain@v1
       with:
-        rust-version: nightly
+        toolchain: nightly
+        override: true
     - uses: Swatinem/rust-cache@v1
     - name: Header
       run: rustc -Vv
@@ -55,6 +57,6 @@ jobs:
     - uses: Swatinem/rust-cache@v1
     - uses: actions-rs/tarpaulin@v0.1
       with:
-        version: '0.27.2'
+        version: '0.26.0'
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v1
