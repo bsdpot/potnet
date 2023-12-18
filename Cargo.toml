@@ -15,7 +15,7 @@ structopt = {version = "0.3", default-features = false }
 walkdir = "2"
 log = "0.4"
 ipnet = "2"
-itertools = "0.10"
+itertools = "0.12"
 thiserror = "1"
 anyhow = "1"
 
