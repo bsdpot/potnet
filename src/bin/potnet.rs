@@ -303,8 +303,10 @@ fn init_ipdb(conf: &PotSystemConfig, ip_db: &mut BTreeMap<IpAddr, Option<String>
     ip_db.insert(conf.network.broadcast(), None);
     info!("Insert gateway {:?}", conf.gateway);
     ip_db.insert(conf.gateway, Some("default gateway".to_string()));
-    info!("Insert dns {:?}", conf.dns_ip);
-    ip_db.insert(conf.dns_ip, Some(conf.dns_name.clone()));
+    if let Some(dns) = &conf.dns {
+        info!("Insert dns {:?}", dns.ip);
+        ip_db.insert(dns.ip, Some(dns.pot_name.clone()));
+    }
     for v in &get_pot_conf_list(conf.clone()) {
         if v.network_type == NetType::PublicBridge || v.network_type == NetType::PrivateBridge {
             info!("Insert pot {:?}", v.ip_addr.unwrap());
@@ -393,11 +395,13 @@ fn main() -> Result<()> {
                     conf.gateway, conf.network
                 );
             }
-            if !conf.network.contains(&conf.dns_ip) {
-                error!(
-                    "DNS IP ({}) outside the network range ({})",
-                    conf.dns_ip, conf.network
-                );
+            if let Some(dns) = &conf.dns {
+                if !conf.network.contains(&dns.ip) {
+                    error!(
+                        "DNS IP ({}) outside the network range ({})",
+                        dns.ip, conf.network
+                    );
+                }
             }
             if conf.network.netmask() != conf.netmask {
                 error!(

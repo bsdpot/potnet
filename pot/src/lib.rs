@@ -17,6 +17,12 @@ use walkdir::WalkDir;
 pub type Result<T> = ::std::result::Result<T, error::PotError>;
 
 #[derive(Debug, Clone)]
+pub struct PotDnsConfig {
+    pub pot_name: String,
+    pub ip: IpAddr,
+}
+
+#[derive(Debug, Clone)]
 pub struct PotSystemConfig {
     pub zfs_root: String,
     pub fs_root: String,
@@ -24,8 +30,7 @@ pub struct PotSystemConfig {
     pub netmask: IpAddr,
     pub gateway: IpAddr,
     pub ext_if: String,
-    pub dns_name: String,
-    pub dns_ip: IpAddr,
+    pub dns: Option<PotDnsConfig>,
 }
 
 impl Default for PotSystemConfig {
@@ -38,8 +43,7 @@ impl Default for PotSystemConfig {
             netmask: IpAddr::V4(Ipv4Addr::new(255, 255, 255, 0)),
             gateway: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             ext_if: String::default(),
-            dns_name: String::default(),
-            dns_ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            dns: None,
         }
     }
 }
@@ -63,8 +67,10 @@ impl TryFrom<system::PartialSystemConf> for PotSystemConfig {
                 netmask: psc.netmask.unwrap(),
                 gateway: psc.gateway.unwrap(),
                 ext_if: psc.ext_if.unwrap(),
-                dns_name: psc.dns_name.unwrap(),
-                dns_ip: psc.dns_ip.unwrap(),
+                dns: match psc.dns_ip {
+                  Some(ip) => Some(PotDnsConfig{pot_name: psc.dns_name.unwrap(), ip}),
+                  None => None
+                },
             })
         } else {
             Err(error::PotError::IncompleteSystemConf)

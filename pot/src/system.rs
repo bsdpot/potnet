@@ -32,7 +32,16 @@ impl PartialSystemConf {
             Err(_) => return dconf,
         };
         let pconf = PartialSystemConf::from_str(&s).ok().unwrap_or_default();
+        let pconf_has_dns_ip = pconf.dns_ip != None;
         dconf.merge(pconf);
+        // remove dns_ip if it came from default config and is not inside pot network
+        if !pconf_has_dns_ip {
+            if let Some(dns_ip) = &dconf.dns_ip {
+                if !dconf.network.unwrap().contains(dns_ip) {
+                    dconf.dns_ip = None;
+                }
+            }
+        }
         dconf
     }
 
@@ -44,7 +53,7 @@ impl PartialSystemConf {
             && self.gateway.is_some()
             && self.ext_if.is_some()
             && self.dns_name.is_some()
-            && self.dns_ip.is_some()
+            && (self.dns_ip.is_none() || self.dns_name.is_some())
     }
 
     fn merge(&mut self, rhs: PartialSystemConf) {
