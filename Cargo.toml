@@ -1,8 +1,8 @@
 [package]
 name = "potnet"
-version = "0.4.4"
+version = "0.5.0"
 authors = ["Luca Pizzamiglio <pizzamig@FreeBSD.org>"]
-edition = "2018"
+edition = "2021"
 categories = ["command-line-interface"]
 keywords = ["FreeBSD"]
 repository = "https://github.com/pizzamig/potnet"
