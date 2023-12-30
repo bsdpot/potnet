@@ -56,9 +56,7 @@ fn allocation_from_utf8(v: &[u8]) -> Result<Allocation> {
     let result: Allocation = mask
         .split(',')
         .map(str::trim)
-        .map(str::parse)
-        .filter(std::result::Result::is_ok)
-        .map(std::result::Result::unwrap)
+        .flat_map(str::parse)
         .collect();
     Ok(result)
 }

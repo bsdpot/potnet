@@ -32,7 +32,7 @@ impl PartialSystemConf {
             Err(_) => return dconf,
         };
         let pconf = PartialSystemConf::from_str(&s).ok().unwrap_or_default();
-        let pconf_has_dns_ip = pconf.dns_ip != None;
+        let pconf_has_dns_ip = pconf.dns_ip.is_some();
         dconf.merge(pconf);
         // remove dns_ip if it came from default config and is not inside pot network
         if !pconf_has_dns_ip {
@@ -234,7 +234,7 @@ mod tests {
         assert!(uut.is_ok());
         let uut = uut.unwrap();
         assert!(!uut.is_valid());
-        assert!(!uut.network.is_some());
+        assert!(uut.network.is_none());
     }
 
     #[test]
