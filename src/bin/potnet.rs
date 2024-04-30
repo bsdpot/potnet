@@ -6,7 +6,7 @@ use pot_rs::{get_pot_conf_list, NetType, PotSystemConfig};
 use std::collections::BTreeMap;
 use std::net::IpAddr;
 use std::net::IpAddr::{V4, V6};
-use std::string::String;
+// use std::string::String;
 use structopt::StructOpt;
 use structopt_flags::{HostParam, LogLevel};
 
@@ -54,6 +54,9 @@ struct BridgeOpt {
     /// The name of a private bridge
     #[structopt(short = "-b", long = "--bridge-name")]
     bridge_name: Option<String>,
+    /// alias hostnames are included as set in pot's configuration
+    #[structopt(short = "-a", long)]
+    aliases_included: bool,
 }
 
 #[derive(Clone, Debug, StructOpt)]
@@ -201,7 +204,8 @@ fn get_next_from_bridge(opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) ->
     Ok(())
 }
 
-fn get_hosts_from_bridge(_opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) -> Result<()> {
+fn get_hosts_from_bridge(_opt: &Opt, conf: &PotSystemConfig, bridge_name: &str, include_aliases: Option<bool>)
+                         -> Result<()> {
     let bridges_list = get_bridges_list(conf)?;
     if let Some(bridge) = bridges_list.iter().find(|x| x.name == bridge_name) {
         info!("bridge {} found", bridge.name);
@@ -211,7 +215,15 @@ fn get_hosts_from_bridge(_opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) 
             if v.network_type == NetType::PrivateBridge
                 && bridge.network.contains(&v.ip_addr.unwrap())
             {
-                ip_db.insert(v.ip_addr.unwrap(), v.name.clone());
+                let mut names = v.name.clone();
+                if include_aliases.unwrap() && v.aliases.is_some() {
+                    names.push(' ');
+                    names.push_str(v.aliases.clone().unwrap().join(" ").as_str());
+                }
+                ip_db.insert(v.ip_addr.unwrap(), names);
+            }
+            if include_aliases.unwrap() && v.aliases.is_some() {
+                ip_db.insert(v.ip_addr.unwrap(), v.aliases.clone().unwrap().join(" "));
             }
         }
         for (ip, hostname) in ip_db {
@@ -221,17 +233,36 @@ fn get_hosts_from_bridge(_opt: &Opt, conf: &PotSystemConfig, bridge_name: &str) 
     Ok(())
 }
 
-fn get_hosts_for_public_bridge(_opt: &Opt, conf: &PotSystemConfig) {
+fn get_hosts_for_public_bridge(_opt: &Opt, conf: &PotSystemConfig, include_aliases: Option<bool>) {
     let mut ip_db = BTreeMap::new();
     for v in &get_pot_conf_list(conf.clone()) {
         if v.network_type == NetType::PublicBridge {
-            ip_db.insert(v.ip_addr.unwrap(), v.name.clone());
+            let mut names = v.name.clone();
+            if include_aliases.unwrap() && v.aliases.is_some() {
+                names.push(' ');
+                names.push_str(v.aliases.clone().unwrap().join(" ").as_str());
+            }
+            ip_db.insert(v.ip_addr.unwrap(), names);
         }
     }
     for (ip, hostname) in ip_db {
         println!("{} {}", ip, hostname);
     }
 }
+
+/*
+fn add_aliases(hosts: &Vec<String>, ip_db: &mut BTreeMap<IpAddr, String>)
+{
+    for host in hosts {
+        let parts = host.rsplit(' ');
+        let mut pairs: Vec<&str> = parts.collect();
+        let ip = pairs.pop().unwrap().parse::<IpAddr>().unwrap();
+        let names = pairs.join(" ");
+        //println!("{} {}", &ip, &names);
+        ip_db.insert(ip, names);
+    };
+}
+*/
 
 fn validate_with_bridge(conf: &PotSystemConfig, bridge_name: &str, ip: IpAddr) -> Result<()> {
     let bridges_list = get_bridges_list(conf)?;
@@ -421,11 +452,12 @@ fn main() -> Result<()> {
             new_net(x.host_number, &conf, &ip_db);
         }
         Command::EtcHosts(ehopt) => {
+            let aliases_included = Some(ehopt.aliases_included);
             if let Some(bridge_name) = ehopt.bridge_name {
                 debug!("get an ip for the bridge {}", bridge_name);
-                get_hosts_from_bridge(&opt_clone, &conf, &bridge_name)?;
+                get_hosts_from_bridge(&opt_clone, &conf, &bridge_name, aliases_included)?;
             } else {
-                get_hosts_for_public_bridge(&opt_clone, &conf);
+                get_hosts_for_public_bridge(&opt_clone, &conf, aliases_included);
             }
         }
     }
