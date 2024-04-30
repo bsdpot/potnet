@@ -91,6 +91,7 @@ pub struct PotConf {
     pub name: String,
     pub ip_addr: Option<IpAddr>,
     pub network_type: NetType,
+    pub aliases: Option<Vec<String>>,
 }
 
 #[derive(Debug, Default)]
@@ -99,6 +100,7 @@ pub struct PotConfVerbatim {
     pub ip4: Option<String>,
     pub ip: Option<String>,
     pub network_type: Option<String>,
+    pub aliases: Option<Vec<String>>,
 }
 
 impl Default for PotConf {
@@ -107,6 +109,7 @@ impl Default for PotConf {
             name: String::default(),
             ip_addr: None,
             network_type: NetType::Inherit,
+            aliases: None,
         }
     }
 }
@@ -205,8 +208,13 @@ pub fn get_pot_conf_list(conf: PotSystemConfig) -> Vec<PotConf> {
             if s.starts_with("network_type=") {
                 temp_pot_conf.network_type = Some(s.split('=').nth(1).unwrap().to_string());
             }
+            if s.starts_with("pot.aliases=") {
+                temp_pot_conf.aliases.get_or_insert(Vec::new()).push(s.split('=')
+                    .nth(1).unwrap().to_string())
+            }
         }
         if let Some(network_type) = temp_pot_conf.network_type {
+            pot_conf.aliases = temp_pot_conf.aliases;
             pot_conf.network_type = match network_type.as_str() {
                 "inherit" => NetType::Inherit,
                 "alias" => NetType::Alias,
