@@ -1,3 +1,4 @@
+# THIS REPOSITORY IS NO LONGER ACTIVELY MAINTAINED, IT HAS MOVED TO https://codeberg.org/bsdpot/potnet
 # `potnet` and `potcpu`
 
 Those two command line utilities are needed by the FreeBSD jail framework [`pot`](https://github.com/pizzamig/pot)
